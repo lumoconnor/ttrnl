@@ -70,7 +70,7 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .players{display:grid;gap:4px}
 .pl{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px}
 .pl.turn{background:var(--soft);outline:2px solid var(--accent)}
-.sw{width:14px;height:14px;border-radius:4px;border:2px solid rgba(0,0,0,.45)}
+.sw{width:14px;height:14px;border-radius:4px;border:2px solid var(--edgeline)}
 .pl .nums{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);text-align:right}
 .pl .score{font-family:var(--display);font-size:20px;color:var(--ink);font-weight:700}
 .cards{display:flex;gap:6px;flex-wrap:wrap}
@@ -85,15 +85,19 @@ button.card{padding:4px 5px}
 .drawrow{display:flex;gap:6px;align-items:flex-end}
 .drawrow .card{width:44px;height:62px;flex:none;font-size:10px;padding:4px 3px}
 .drawrow .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px 0 6px}
-/* A stack is the top card raised by its depth, with the cards under it showing as edges below, so its bottom lines up with the face-up cards. */
-.stack{--d:0;position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.45);cursor:pointer;margin-bottom:calc(var(--d) * 3px);transition:transform .12s}
-.stack:not(:disabled):hover{transform:translateY(-2px)}
-.stack:disabled{cursor:default;opacity:.6}
-.stack.d1{--d:1;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45)}
-.stack.d2{--d:2;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45),0 6px 0 -1px var(--stackedge),0 6px 0 0 rgba(0,0,0,.45)}
-.stack.d3{--d:3;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45),0 6px 0 -1px var(--stackedge),0 6px 0 0 rgba(0,0,0,.45),0 9px 0 -1px var(--stackedge),0 9px 0 0 rgba(0,0,0,.45)}
-.stack.empty{background:var(--soft)!important;border-style:dashed;box-shadow:none;color:var(--muted);font-size:11px;margin-bottom:0}
-.stack .cnt{position:absolute;right:-9px;top:-9px;min-width:22px;padding:1px 5px;border-radius:11px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:11px;font-weight:700;line-height:16px;text-align:center}
+/* A pile is the top card raised by its depth, with the cards under it showing as edges below, so its bottom lines up with the face-up cards. */
+.pile{--d:0;--edgeline:rgba(0,0,0,.45);position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.45);cursor:pointer;margin-bottom:calc(var(--d) * 3px);transition:transform .12s}
+.pile:not(:disabled):hover,.drawrow button.card:not(:disabled):hover{transform:translateY(-2px)}
+.drawrow button.card{transition:transform .12s}
+.pile:not(:disabled):hover{--edgeline:var(--ink)}
+.pile:focus-visible{outline:none}
+.pile:focus-visible::after{content:"";position:absolute;inset:-5px -5px calc(-5px - var(--d) * 3px) -5px;border:3px solid var(--focus);border-radius:11px;pointer-events:none}
+.pile:disabled{cursor:default;opacity:.6}
+.pile.d1{--d:1;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 var(--edgeline)}
+.pile.d2{--d:2;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 var(--edgeline),0 6px 0 -1px var(--stackedge),0 6px 0 0 var(--edgeline)}
+.pile.d3{--d:3;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 var(--edgeline),0 6px 0 -1px var(--stackedge),0 6px 0 0 var(--edgeline),0 9px 0 -1px var(--stackedge),0 9px 0 0 var(--edgeline)}
+.pile.empty{background:var(--soft)!important;border-style:dashed;box-shadow:none;color:var(--muted);font-size:11px;margin-bottom:0}
+.pile .cnt{position:absolute;z-index:1;right:-9px;top:-9px;min-width:22px;padding:1px 5px;border-radius:11px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:11px;font-weight:700;line-height:16px;text-align:center}
 .deck{--stackedge:#5d88ad;width:44px;height:62px;background:#8db7da}
 .tixstack{--stackedge:#d8c79c;width:66px;height:46px;background:#f6edd4;border-color:#8a6e3a;display:grid;place-items:center}
 .tixstack svg{width:46px;height:28px}
@@ -861,8 +865,8 @@ function render(){
   if (s.phase !== "ended") {
     const canDraw = myTurn && !wait && s.turnStep !== "choosingTickets";
     const deckN = s.deck.length + s.discard.length, tixN = s.ticketDeck.length, depth = n => n > 20 ? 3 : n > 8 ? 2 : n > 1 ? 1 : 0;
-    html += `<div class="panel"><h3>Train cards</h3><div class="drawrow">${deckN ? `<button id="drawDeck" class="stack deck d${depth(deckN)}" ${canDraw ? "" : "disabled"} aria-label="Draw from the pile, ${deckN} cards left" title="Draw from the pile"><span class="cnt">${deckN}</span></button>` : `<button id="drawDeck" class="stack deck empty" disabled aria-label="The pile is empty">empty</button>`}<span class="sep"></span>${(s.market || []).map((c, i) => c ? `<button class="card c-${c}" style="background:${CARD[c].hex}" data-mk="${i}" ${canDraw && !(c === "wild" && s.turnStep === "drewOne") ? "" : "disabled"} aria-label="Take ${CARD[c].label}"><span class="lbl">${esc(CARD[c].label)}</span></button>` : `<div class="card empty">empty</div>`).join("")}</div>
-      <div class="tixrow">${tixN ? `<button id="drawTix" class="stack tixstack d${depth(tixN)}" ${myTurn && !wait && s.turnStep === "start" ? "" : "disabled"} aria-label="Draw destination tickets, ${tixN} left" title="Draw destination tickets"><svg viewBox="0 0 46 28" aria-hidden="true"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="2.4" stroke-dasharray="4 3"/><circle cx="6" cy="21" r="4" fill="#c4472c"/><circle cx="40" cy="7" r="4" fill="#c4472c"/></svg><span class="cnt">${tixN}</span></button>` : `<button id="drawTix" class="stack tixstack empty" disabled>empty</button>`}<div class="small muted">Destination tickets<br>Draw ${R.ticketsOffered}, keep at least ${R.ticketsKeep}</div></div>
+    html += `<div class="panel"><h3>Train cards</h3><div class="drawrow">${deckN ? `<button id="drawDeck" class="pile deck d${depth(deckN)}" ${canDraw ? "" : "disabled"} aria-label="Draw from the pile, ${deckN} cards left" title="Draw from the pile"><span class="cnt">${deckN}</span></button>` : `<button id="drawDeck" class="pile deck empty" disabled aria-label="The pile is empty">empty</button>`}<span class="sep"></span>${(s.market || []).map((c, i) => c ? `<button class="card c-${c}" style="background:${CARD[c].hex}" data-mk="${i}" ${canDraw && !(c === "wild" && s.turnStep === "drewOne") ? "" : "disabled"} aria-label="Take ${CARD[c].label}"><span class="lbl">${esc(CARD[c].label)}</span></button>` : `<div class="card empty">empty</div>`).join("")}</div>
+      <div class="tixrow">${tixN ? `<button id="drawTix" class="pile tixstack d${depth(tixN)}" ${myTurn && !wait && s.turnStep === "start" ? "" : "disabled"} aria-label="Draw destination tickets, ${tixN} left" title="Draw destination tickets"><svg viewBox="0 0 46 28" aria-hidden="true"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="2.4" stroke-dasharray="4 3"/><circle cx="6" cy="21" r="4" fill="#c4472c"/><circle cx="40" cy="7" r="4" fill="#c4472c"/></svg><span class="cnt">${tixN}</span></button>` : `<button id="drawTix" class="pile tixstack empty" disabled>empty</button>`}<div class="small muted">Destination tickets<br>Draw ${R.ticketsOffered}, keep at least ${R.ticketsKeep}</div></div>
       ${myTurn && s.turnStep === "start" && !canDrawAny(s) && !s.ticketDeck.length ? `<button id="passBtn">Pass (nothing left to draw)</button>` : ""}</div>`;
   }
   // hand
