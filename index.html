@@ -661,7 +661,7 @@ function startLocal(names, handoff, test){
 let lastDrawAt = 0;
 async function send(action, asId){
   // A double click or double tap would otherwise take both cards at once, since the host's own moves apply instantly.
-  if (action.type === "drawDeck" || action.type === "drawMarket") { const t = Date.now(); if (t - lastDrawAt < 500) return; lastDrawAt = t; }
+  if (action.type === "drawDeck" || action.type === "drawMarket") { const t = Date.now(); if (t - lastDrawAt < 200) return; lastDrawAt = t; }
   if (local) {
     const s = structuredClone(state);
     try { apply(s, asId || me, action); state = s; sendError = null; } catch (e) { sendError = e.message; }
