@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newfoundland Rails</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Claim rail routes across Newfoundland and connect your destination tickets. A browser game for 2 to 5 players.">
+<script src="vendor/peerjs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a chart-table — the map fills the left, a narrow conductor's panel on the right; stacks on phones. */
+:root{
+  --bg:#e9eef0; --panel:#ffffff; --ink:#1c2830; --muted:#58686f; --line:#cfd8dc; --soft:#f3f6f7;
+  --accent:#c4472c; --accent-ink:#ffffff; --ok:#2c7d49; --warn:#9a6412; --focus:#1f6fb2;
+  --display:"Zilla Slab", Georgia, serif; --body:"Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171b; --panel:#162127; --ink:#e4ecef; --muted:#93a3aa; --line:#2b3a42; --soft:#1c2a31;
+  --accent:#e0623f; --accent-ink:#1a0c07; --ok:#5cbf7d; --warn:#e0a84b; --focus:#6fb2ef; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171b; --panel:#162127; --ink:#e4ecef; --muted:#93a3aa; --line:#2b3a42; --soft:#1c2a31;
+  --accent:#e0623f; --accent-ink:#1a0c07; --ok:#5cbf7d; --warn:#e0a84b; --focus:#6fb2ef; color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance}
+h1{font-size:30px;letter-spacing:.01em} h2{font-size:19px} h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--body)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 12px}
+button:hover:not(:disabled){border-color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+input[type=text]{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+.muted{color:var(--muted)} .small{font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.stack{display:grid;gap:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
+/* Home */
+#home{max-width:880px;margin:0 auto;display:grid;gap:18px;padding-top:8px}
+.hero{display:grid;gap:6px}
+.hero p{max-width:62ch;margin:0}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.code{font-family:var(--display);font-size:34px;letter-spacing:.18em;font-weight:700}
+.notice{border-left:4px solid var(--warn);padding:8px 12px;background:var(--soft);border-radius:6px}
+.err{color:var(--accent);font-weight:700}
+/* Game */
+#game{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start;max-width:1500px;margin:0 auto}
+@media (max-width:900px){#game{grid-template-columns:minmax(0,1fr)}}
+.topbar{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.status{font-family:var(--display);font-size:20px;font-weight:700}
+.status.mine{color:var(--accent)}
+.boardbox{position:relative;width:100%;aspect-ratio:1876/1979;margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
+.boardwrap{position:absolute;inset:0;overflow:auto;cursor:default}
+.boardwrap.pan{cursor:grab}.boardwrap.dragging{cursor:grabbing}
+.boardwrap svg{display:block;height:auto}
+.zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}
+.zoom button{padding:4px 10px;background:var(--panel)}
+.rt{cursor:pointer}
+.rt.own,.rt.own *{cursor:default;pointer-events:none!important}
+.route-hit{fill:none;stroke:transparent;stroke-width:26;pointer-events:stroke}
+.rt:not(.own):hover .car{stroke:#e8431a;stroke-width:3.2}
+.rt.sel .car{stroke:#e8431a;stroke-width:4}
+.city{font-family:var(--display);font-weight:700;font-size:25px;fill:#1f2a2e;paint-order:stroke;stroke:#ffffffd9;stroke-width:6px;stroke-linejoin:round;pointer-events:none}
+.tag{font-family:var(--display);font-weight:700;font-size:22px;fill:#fff;pointer-events:none}
+.side{display:grid;gap:12px;min-width:0}
+.players{display:grid;gap:4px}
+.pl{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px}
+.pl.turn{background:var(--soft);outline:2px solid var(--accent)}
+.sw{width:14px;height:14px;border-radius:4px;border:2px solid rgba(0,0,0,.45)}
+.pl .nums{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);text-align:right}
+.pl .score{font-family:var(--display);font-size:20px;color:var(--ink);font-weight:700}
+.cards{display:flex;gap:6px;flex-wrap:wrap}
+.card{width:52px;height:72px;border-radius:8px;border:2px solid rgba(0,0,0,.35);display:flex;flex-direction:column;justify-content:space-between;
+  padding:4px 5px;font-size:11px;font-weight:700;color:#111;position:relative;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+button.card{padding:4px 5px}
+.card .n{font-family:var(--display);font-size:22px;line-height:1;align-self:flex-end}
+.card.c-black{color:#f4f4f4}
+.card.c-wild{background:conic-gradient(#d8302e,#eaa52a,#e8d84a,#8ad42a,#2a86e0,#d98ad8,#d8302e)!important}
+.card.c-wild .lbl{background:#fff;border-radius:4px;padding:0 3px;align-self:flex-start}
+.card.empty{background:var(--soft)!important;border-style:dashed;color:var(--muted)}
+.drawbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tix{display:grid;gap:6px}
+.tk{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
+.tk.done{border-color:var(--ok)}
+.tk .pts{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+.tk .ok{color:var(--ok);font-weight:700;font-size:12px}
+label.tk{cursor:pointer}
+.log{max-height:220px;overflow:auto;font-size:13px;display:grid;gap:3px}
+.log div{border-bottom:1px solid var(--line);padding-bottom:3px}
+.claim{border:2px solid var(--accent)}
+.banner{grid-column:1/-1;padding:10px 14px;border-radius:10px;background:var(--soft);border:1px solid var(--line)}
+.banner.final{border-color:var(--accent);font-weight:700}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+.tablewrap{overflow-x:auto}
+@media (prefers-reduced-motion:no-preference){.pl.turn{transition:background .3s}}
+</style>
+</head>
+<body>
+
+<div id="home" hidden>
+  <div class="hero">
+    <h1>Newfoundland Rails</h1>
+    <p class="muted">Claim rail routes across the island, connect your destination tickets, and score the most points. Two to five players, each on their own device.</p>
+  </div>
+  <div id="homeMsg"></div>
+  <div class="panel" id="resumeBox" hidden></div>
+  <div class="choices">
+    <form class="panel" id="createForm">
+      <h2>Host a new game</h2>
+      <p class="small muted" style="margin:0">You get a five-letter code to send to the other players. Keep this page open while you play: your device runs the game.</p>
+      <label class="small" for="hostName">Your name</label>
+      <input type="text" id="hostName" maxlength="20" autocomplete="nickname" required>
+      <button class="primary" type="submit">Create game</button>
+    </form>
+    <form class="panel" id="joinForm">
+      <h2>Join a game</h2>
+      <p class="small muted" style="margin:0">Enter the code the host gave you.</p>
+      <label class="small" for="joinCode">Game code</label>
+      <input type="text" id="joinCode" maxlength="5" autocomplete="off" style="text-transform:uppercase;letter-spacing:.15em" required>
+      <label class="small" for="joinName">Your name</label>
+      <input type="text" id="joinName" maxlength="20" autocomplete="nickname" required>
+      <button class="primary" type="submit">Join game</button>
+    </form>
+  </div>
+  <form class="panel" id="localForm">
+    <div class="row" style="justify-content:space-between"><h2>Play on one device</h2></div>
+    <p class="small muted" style="margin:0">Pass and play: take turns on this screen. Nothing is saved, so leaving ends the game.</p>
+    <label class="small" for="localNames">Player names, separated by commas (2 to 5)</label>
+    <input type="text" id="localNames" autocomplete="off" placeholder="Luke, Sam">
+    <div class="row"><button class="primary" type="submit">Start pass and play</button><button type="button" id="quickTest">Quick test: 3 random players</button></div>
+    <p class="small muted" style="margin:0">Quick test skips the hand-off screens and starting ticket choice, and adds test tools.</p>
+    <div id="localErr" class="err small"></div>
+  </form>
+</div>
+
+<div id="game" hidden></div>
+<div id="boot" class="muted" style="max-width:880px;margin:40px auto">Loading…</div>
+
+<script>
+const BOARD = {"schemaVersion":1,"id":"newfoundland","name":"Newfoundland","author":"Luke","canvas":{"width":1876,"height":1979,"background":"newfoundland-bg.png"},"colors":[{"id":"pink","label":"Pink","hex":"#d98ad8","count":12},{"id":"white","label":"White","hex":"#ececec","count":12},{"id":"blue","label":"Blue","hex":"#2a86e0","count":12},{"id":"yellow","label":"Yellow","hex":"#e8d84a","count":12},{"id":"orange","label":"Orange","hex":"#eaa52a","count":12},{"id":"black","label":"Black","hex":"#333333","count":12},{"id":"red","label":"Red","hex":"#d8302e","count":12},{"id":"green","label":"Green","hex":"#8ad42a","count":12},{"id":"wild","label":"Wild","hex":"#b48a5a","count":14}],"cities":[{"id":"st-anthony","name":"St. Anthony","x":932,"y":131},{"id":"port-au-choix","name":"Port au Choix","x":556,"y":381},{"id":"roddickton","name":"Roddickton","x":812,"y":380},{"id":"cow-head","name":"Cow Head","x":445,"y":612},{"id":"jacksons-arm","name":"Jackson's Arm","x":641,"y":698},{"id":"baie-verte","name":"Baie Verte","x":783,"y":657},{"id":"rocky-harbour","name":"Rocky Harbour","x":382,"y":792},{"id":"springdale","name":"Springdale","x":895,"y":857},{"id":"deer-lake","name":"Deer Lake","x":543,"y":930},{"id":"corner-brook","name":"Corner Brook","x":424,"y":1012},{"id":"twillingate","name":"Twillingate","x":1160,"y":777},{"id":"fogo-island","name":"Fogo Island","x":1322,"y":780},{"id":"lewisporte","name":"Lewisporte","x":1128,"y":940},{"id":"buchans","name":"Buchans","x":730,"y":1073},{"id":"grand-falls","name":"Grand Falls","x":1005,"y":1062},{"id":"gander","name":"Gander","x":1233,"y":1085},{"id":"eastport","name":"Eastport","x":1408,"y":1143},{"id":"bonavista","name":"Bonavista","x":1565,"y":1180},{"id":"stephenville","name":"Stephenville","x":300,"y":1195},{"id":"nowhere","name":"Nowhere","x":755,"y":1252},{"id":"clarenville","name":"Clarenville","x":1347,"y":1287},{"id":"conne-river","name":"Conne River","x":937,"y":1422},{"id":"goobies","name":"Goobies","x":1376,"y":1510},{"id":"bay-roberts","name":"Bay Roberts","x":1490,"y":1552},{"id":"st-johns","name":"St. John's","x":1657,"y":1537},{"id":"port-aux-basques","name":"Port aux Basques","x":88,"y":1548},{"id":"burgeo","name":"Burgeo","x":536,"y":1549},{"id":"francois","name":"Francois","x":712,"y":1548},{"id":"harbour-breton","name":"Harbour Breton","x":880,"y":1590},{"id":"marystown","name":"Marystown","x":1104,"y":1652},{"id":"argentia","name":"Argentia","x":1328,"y":1667},{"id":"op","name":"Ocean Pond","x":1512,"y":1656},{"id":"mount-pearl","name":"Mount Pearl","x":1642,"y":1638},{"id":"saint-marys","name":"Saint Mary's","x":1452,"y":1730},{"id":"fortune","name":"Fortune","x":888,"y":1745},{"id":"saint-pierre","name":"Saint-Pierre","x":808,"y":1815},{"id":"ferryland","name":"Ferryland","x":1627,"y":1797},{"id":"trepassey","name":"Trepassey","x":1490,"y":1885},{"id":"labrador","name":"Labrador","x":315,"y":242,"offMap":true,"marks":[[452,125],[222,395]]},{"id":"nova-scotia","name":"Nova Scotia","x":605,"y":1911,"offMap":true,"marks":[[198,1888],[1020,1900]]}],"routes":[{"id":"r001","a":"port-au-choix","b":"labrador","length":4,"color":"orange","kind":"ferry","wildsRequired":1,"path":[[556,381],[352,172]]},{"id":"r002","a":"port-au-choix","b":"labrador","length":4,"color":"yellow","kind":"ferry","wildsRequired":1,"path":[[556,381],[278,312]]},{"id":"r003","a":"port-au-choix","b":"st-anthony","length":4,"color":"pink","kind":"mountain","doubleGroup":"d1"},{"id":"r004","a":"port-au-choix","b":"st-anthony","length":4,"color":"black","kind":"mountain","doubleGroup":"d1"},{"id":"r005","a":"port-au-choix","b":"roddickton","length":3,"color":"gray","kind":"mountain"},{"id":"r006","a":"roddickton","b":"st-anthony","length":3,"color":"blue","kind":"mountain"},{"id":"r007","a":"roddickton","b":"jacksons-arm","length":4,"color":"green","kind":"mountain"},{"id":"r008","a":"port-au-choix","b":"cow-head","length":3,"color":"green","kind":"mountain","doubleGroup":"d2"},{"id":"r009","a":"port-au-choix","b":"cow-head","length":3,"color":"gray","kind":"mountain","doubleGroup":"d2"},{"id":"r010","a":"cow-head","b":"jacksons-arm","length":3,"color":"white","kind":"mountain"},{"id":"r011","a":"cow-head","b":"rocky-harbour","length":2,"color":"yellow","kind":"mountain","doubleGroup":"d3"},{"id":"r012","a":"cow-head","b":"rocky-harbour","length":2,"color":"blue","kind":"mountain","doubleGroup":"d3"},{"id":"r013","a":"cow-head","b":"deer-lake","length":3,"color":"pink","kind":"mountain"},{"id":"r014","a":"jacksons-arm","b":"deer-lake","length":3,"color":"orange"},{"id":"r015","a":"rocky-harbour","b":"deer-lake","length":2,"color":"white","kind":"mountain"},{"id":"r016","a":"rocky-harbour","b":"corner-brook","length":2,"color":"gray","kind":"mountain","doubleGroup":"d4"},{"id":"r017","a":"rocky-harbour","b":"corner-brook","length":2,"color":"gray","kind":"mountain","doubleGroup":"d4"},{"id":"r018","a":"baie-verte","b":"deer-lake","length":3,"color":"blue","kind":"mountain"},{"id":"r019","a":"baie-verte","b":"springdale","length":3,"color":"black","kind":"mountain","doubleGroup":"d5"},{"id":"r020","a":"baie-verte","b":"springdale","length":3,"color":"pink","kind":"mountain","doubleGroup":"d5"},{"id":"r021","a":"baie-verte","b":"twillingate","length":5,"color":"red","kind":"ferry","wildsRequired":1,"mid":[985,690]},{"id":"r022","a":"deer-lake","b":"springdale","length":5,"color":"gray","doubleGroup":"d6","mid":[720,872]},{"id":"r023","a":"deer-lake","b":"springdale","length":5,"color":"gray","doubleGroup":"d6","mid":[720,872]},{"id":"r024","a":"deer-lake","b":"corner-brook","length":1,"color":"green","doubleGroup":"d7"},{"id":"r025","a":"deer-lake","b":"corner-brook","length":1,"color":"orange","doubleGroup":"d7"},{"id":"r026","a":"springdale","b":"buchans","length":3,"color":"blue","kind":"mountain"},{"id":"r027","a":"springdale","b":"grand-falls","length":3,"color":"yellow","doubleGroup":"d8"},{"id":"r028","a":"springdale","b":"grand-falls","length":3,"color":"red","doubleGroup":"d8"},{"id":"r029","a":"deer-lake","b":"buchans","length":3,"color":"yellow","kind":"mountain"},{"id":"r030","a":"buchans","b":"grand-falls","length":3,"color":"gray"},{"id":"r031","a":"buchans","b":"stephenville","length":6,"color":"gray","kind":"mountain"},{"id":"r032","a":"twillingate","b":"fogo-island","length":2,"color":"gray","kind":"ferry","wildsRequired":1,"doubleGroup":"d9","mid":[1240,752]},{"id":"r033","a":"twillingate","b":"fogo-island","length":2,"color":"gray","kind":"ferry","wildsRequired":1,"doubleGroup":"d9","mid":[1240,752]},{"id":"r034","a":"twillingate","b":"lewisporte","length":2,"color":"gray","kind":"ferry","wildsRequired":1,"doubleGroup":"d10"},{"id":"r035","a":"twillingate","b":"lewisporte","length":2,"color":"pink","kind":"ferry","wildsRequired":1,"doubleGroup":"d10"},{"id":"r036","a":"lewisporte","b":"fogo-island","length":2,"color":"gray","kind":"ferry","wildsRequired":1},{"id":"r037","a":"lewisporte","b":"grand-falls","length":2,"color":"white","doubleGroup":"d11"},{"id":"r038","a":"lewisporte","b":"grand-falls","length":2,"color":"gray","kind":"mountain","doubleGroup":"d11"},{"id":"r039","a":"lewisporte","b":"gander","length":2,"color":"gray","kind":"mountain","doubleGroup":"d12"},{"id":"r040","a":"lewisporte","b":"gander","length":2,"color":"yellow","doubleGroup":"d12"},{"id":"r041","a":"grand-falls","b":"gander","length":2,"color":"orange","doubleGroup":"d13"},{"id":"r042","a":"grand-falls","b":"gander","length":2,"color":"black","doubleGroup":"d13"},{"id":"r043","a":"fogo-island","b":"bonavista","length":6,"color":"green","kind":"ferry","wildsRequired":1,"mid":[1495,960]},{"id":"r044","a":"gander","b":"eastport","length":3,"color":"red","mid":[1335,1055]},{"id":"r045","a":"gander","b":"clarenville","length":3,"color":"white","doubleGroup":"d14"},{"id":"r046","a":"gander","b":"clarenville","length":3,"color":"blue","doubleGroup":"d14"},{"id":"r047","a":"eastport","b":"bonavista","length":2,"color":"blue","kind":"mountain","mid":[1488,1150]},{"id":"r048","a":"eastport","b":"clarenville","length":2,"color":"gray"},{"id":"r049","a":"clarenville","b":"bonavista","length":3,"color":"black","doubleGroup":"d15"},{"id":"r050","a":"clarenville","b":"bonavista","length":3,"color":"yellow","doubleGroup":"d15"},{"id":"r051","a":"gander","b":"conne-river","length":4,"color":"red","kind":"mountain"},{"id":"r052","a":"nowhere","b":"grand-falls","length":3,"color":"green","kind":"mountain"},{"id":"r053","a":"grand-falls","b":"conne-river","length":3,"color":"pink","doubleGroup":"d16"},{"id":"r054","a":"grand-falls","b":"conne-river","length":3,"color":"white","doubleGroup":"d16"},{"id":"r055","a":"corner-brook","b":"stephenville","length":2,"color":"white","doubleGroup":"d17"},{"id":"r056","a":"corner-brook","b":"stephenville","length":2,"color":"gray","kind":"mountain","doubleGroup":"d17"},{"id":"r057","a":"stephenville","b":"port-aux-basques","length":5,"color":"yellow","kind":"mountain","doubleGroup":"d18"},{"id":"r058","a":"stephenville","b":"port-aux-basques","length":5,"color":"black","doubleGroup":"d18"},{"id":"r059","a":"stephenville","b":"burgeo","length":5,"color":"gray","kind":"mountain"},{"id":"r060","a":"nowhere","b":"burgeo","length":4,"color":"orange","kind":"mountain"},{"id":"r061","a":"port-aux-basques","b":"burgeo","length":5,"color":"red","kind":"ferry","wildsRequired":1,"mid":[312,1565]},{"id":"r062","a":"burgeo","b":"francois","length":2,"color":"gray","kind":"ferry","wildsRequired":1},{"id":"r063","a":"nowhere","b":"conne-river","length":3,"color":"white","kind":"mountain"},{"id":"r064","a":"francois","b":"conne-river","length":3,"color":"blue"},{"id":"r065","a":"conne-river","b":"harbour-breton","length":2,"color":"green","doubleGroup":"d19"},{"id":"r066","a":"conne-river","b":"harbour-breton","length":2,"color":"orange","doubleGroup":"d19"},{"id":"r067","a":"conne-river","b":"marystown","length":4,"color":"gray","kind":"ferry","wildsRequired":1,"mid":[1000,1560]},{"id":"r068","a":"francois","b":"harbour-breton","length":2,"color":"gray","kind":"ferry","wildsRequired":1},{"id":"r069","a":"harbour-breton","b":"saint-pierre","length":3,"color":"black","kind":"ferry","wildsRequired":1,"mid":[822,1705]},{"id":"r070","a":"harbour-breton","b":"fortune","length":2,"color":"gray","kind":"ferry","wildsRequired":1,"mid":[900,1670]},{"id":"r071","a":"fortune","b":"saint-pierre","length":1,"color":"gray","kind":"ferry","wildsRequired":1,"doubleGroup":"d20"},{"id":"r072","a":"fortune","b":"saint-pierre","length":1,"color":"gray","kind":"ferry","wildsRequired":1,"doubleGroup":"d20"},{"id":"r073","a":"fortune","b":"marystown","length":3,"color":"orange","kind":"mountain","doubleGroup":"d21"},{"id":"r074","a":"fortune","b":"marystown","length":3,"color":"red","doubleGroup":"d21"},{"id":"r075","a":"marystown","b":"goobies","length":5,"color":"pink","kind":"mountain","doubleGroup":"d22","mid":[1200,1525]},{"id":"r076","a":"marystown","b":"goobies","length":5,"color":"white","doubleGroup":"d22","mid":[1200,1525]},{"id":"r077","a":"marystown","b":"argentia","length":3,"color":"black","kind":"ferry","wildsRequired":1,"mid":[1220,1640]},{"id":"r078","a":"goobies","b":"clarenville","length":3,"color":"green","kind":"mountain","doubleGroup":"d23"},{"id":"r079","a":"goobies","b":"clarenville","length":3,"color":"gray","kind":"mountain","doubleGroup":"d23"},{"id":"r080","a":"goobies","b":"argentia","length":2,"color":"blue"},{"id":"r081","a":"argentia","b":"nova-scotia","length":5,"color":"pink","kind":"ferry","wildsRequired":1,"path":[[1328,1667],[1112,1924]]},{"id":"r082","a":"port-aux-basques","b":"nova-scotia","length":5,"color":"blue","kind":"ferry","wildsRequired":1,"path":[[88,1548],[97,1898]]},{"id":"r083","a":"goobies","b":"op","length":2,"color":"yellow","doubleGroup":"d24","mid":[1414,1606]},{"id":"r084","a":"goobies","b":"op","length":2,"color":"red","doubleGroup":"d24","mid":[1414,1606]},{"id":"r085","a":"bay-roberts","b":"op","length":1,"color":"gray","doubleGroup":"d25"},{"id":"r086","a":"bay-roberts","b":"op","length":1,"color":"orange","doubleGroup":"d25"},{"id":"r087","a":"bay-roberts","b":"st-johns","length":2,"color":"white","doubleGroup":"d26"},{"id":"r088","a":"bay-roberts","b":"st-johns","length":2,"color":"red","doubleGroup":"d26"},{"id":"r089","a":"st-johns","b":"mount-pearl","length":1,"color":"gray","doubleGroup":"d27"},{"id":"r090","a":"st-johns","b":"mount-pearl","length":1,"color":"gray","doubleGroup":"d27"},{"id":"r091","a":"op","b":"st-johns","length":1,"color":"black"},{"id":"r092","a":"op","b":"mount-pearl","length":1,"color":"gray","doubleGroup":"d28"},{"id":"r093","a":"op","b":"mount-pearl","length":1,"color":"blue","doubleGroup":"d28"},{"id":"r094","a":"op","b":"saint-marys","length":1,"color":"green","doubleGroup":"d29"},{"id":"r095","a":"op","b":"saint-marys","length":1,"color":"white","doubleGroup":"d29"},{"id":"r096","a":"saint-marys","b":"mount-pearl","length":2,"color":"pink","mid":[1552,1703]},{"id":"r097","a":"saint-marys","b":"ferryland","length":2,"color":"yellow","doubleGroup":"d30"},{"id":"r098","a":"saint-marys","b":"ferryland","length":2,"color":"gray","doubleGroup":"d30"},{"id":"r099","a":"mount-pearl","b":"ferryland","length":2,"color":"green","doubleGroup":"d31"},{"id":"r100","a":"mount-pearl","b":"ferryland","length":2,"color":"black","doubleGroup":"d31"},{"id":"r101","a":"saint-marys","b":"trepassey","length":2,"color":"black","doubleGroup":"d32"},{"id":"r102","a":"saint-marys","b":"trepassey","length":2,"color":"red","kind":"mountain","doubleGroup":"d32"},{"id":"r103","a":"trepassey","b":"ferryland","length":2,"color":"gray","kind":"mountain","doubleGroup":"d33"},{"id":"r104","a":"trepassey","b":"ferryland","length":2,"color":"white","doubleGroup":"d33"},{"id":"r105","a":"argentia","b":"saint-marys","length":2,"color":"gray","doubleGroup":"d34"},{"id":"r106","a":"argentia","b":"saint-marys","length":2,"color":"gray","doubleGroup":"d34"},{"id":"r107","a":"bonavista","b":"st-johns","length":5,"color":"gray","kind":"ferry","wildsRequired":1,"mid":[1650,1350]}],"tickets":[{"id":"t01","from":"buchans","to":"st-anthony","points":16,"long":true},{"id":"t02","from":"port-aux-basques","to":"eastport","points":18,"long":true},{"id":"t03","from":"st-johns","to":"baie-verte","points":18,"long":true},{"id":"t04","from":"springdale","to":"nova-scotia","points":18,"long":true},{"id":"t05","from":"labrador","to":"stephenville","points":16,"long":true},{"id":"t06","from":"marystown","to":"corner-brook","points":16,"long":true},{"id":"t07","from":"argentia","to":"fortune","points":6},{"id":"t08","from":"saint-pierre","to":"gander","points":10},{"id":"t09","from":"deer-lake","to":"port-aux-basques","points":8},{"id":"t10","from":"trepassey","to":"st-johns","points":5},{"id":"t11","from":"twillingate","to":"harbour-breton","points":9},{"id":"t12","from":"grand-falls","to":"goobies","points":9},{"id":"t13","from":"port-au-choix","to":"deer-lake","points":8},{"id":"t14","from":"bonavista","to":"op","points":7},{"id":"t15","from":"bay-roberts","to":"eastport","points":9},{"id":"t16","from":"st-anthony","to":"labrador","points":8},{"id":"t17","from":"ferryland","to":"goobies","points":5},{"id":"t18","from":"fogo-island","to":"clarenville","points":7},{"id":"t19","from":"burgeo","to":"springdale","points":11},{"id":"t20","from":"deer-lake","to":"roddickton","points":8},{"id":"t21","from":"cow-head","to":"st-anthony","points":9},{"id":"t22","from":"gander","to":"baie-verte","points":9},{"id":"t23","from":"lewisporte","to":"st-johns","points":12},{"id":"t24","from":"mount-pearl","to":"eastport","points":9},{"id":"t25","from":"lewisporte","to":"nowhere","points":6},{"id":"t26","from":"jacksons-arm","to":"stephenville","points":6},{"id":"t27","from":"fortune","to":"op","points":9},{"id":"t28","from":"francois","to":"marystown","points":7},{"id":"t29","from":"clarenville","to":"saint-marys","points":7},{"id":"t30","from":"conne-river","to":"buchans","points":6},{"id":"t31","from":"burgeo","to":"conne-river","points":5},{"id":"t32","from":"marystown","to":"clarenville","points":9},{"id":"t33","from":"trepassey","to":"conne-river","points":11},{"id":"t34","from":"grand-falls","to":"fogo-island","points":5},{"id":"t35","from":"rocky-harbour","to":"springdale","points":8},{"id":"t36","from":"bonavista","to":"gander","points":6}],"rules":{"playersMin":2,"playersMax":5,"trainsPerPlayer":45,"handSize":4,"marketSize":5,"maxFaceUpWilds":3,"routeScores":{"1":1,"2":2,"3":4,"4":7,"5":10,"6":15},"longestPathBonus":10,"ticketsOfferedStart":3,"ticketsKeepStart":2,"ticketsOffered":3,"ticketsKeep":1,"endTrainsThreshold":2,"doubleRoutesMinPlayers":4,"mountainExtraTrains":1,"mountainBonusPoints":2}};
+const COAST = "M548 -1106L541 -1104L490 -1106L478 -1101L483 -1097L538 -1097L546 -1094L542 -1089L536 -1095L527 -1095L520 -1091L517 -1089L522 -1084L519 -1080L509 -1075L506 -1071L491 -1063L485 -1062L457 -1069L450 -1064L445 -1064L438 -1070L365 -1058L365 -1052L352 -1045L347 -1039L357 -1040L377 -1047L386 -1047L382 -1042L367 -1034L363 -1036L350 -1031L355 -1021L353 -1018L332 -1017L298 -1010L276 -1001L248 -982L237 -978L201 -979L172 -970L142 -965L136 -963L128 -958L117 -956L109 -950L78 -944L50 -951L35 -946L34 -944L32 -944L34 -941L48 -936L49 -928L51 -926L68 -932L101 -932L144 -945L181 -951L215 -966L227 -970L244 -969L248 -971L255 -978L273 -988L281 -995L285 -994L301 -997L305 -1000L312 -1009L316 -1011L321 -1008L312 -1000L299 -979L285 -970L276 -953L261 -937L254 -934L242 -933L206 -941L162 -934L162 -932L191 -928L178 -911L170 -906L164 -904L148 -905L146 -902L141 -903L121 -897L109 -890L101 -883L86 -878L71 -865L68 -865L60 -859L46 -856L21 -858L-15 -869L-28 -868L-33 -866L-36 -863L-36 -860L-34 -857L-24 -857L-21 -856L-19 -850L-23 -848L-41 -849L-66 -844L-81 -837L-85 -838L-97 -846L-97 -843L-95 -843L-91 -836L-84 -828L-76 -821L-69 -818L-69 -816L-82 -817L-88 -814L-91 -804L-92 -782L-83 -761L-83 -757L-92 -754L-98 -747L-100 -750L-101 -758L-121 -766L-131 -776L-147 -786L-159 -803L-171 -807L-186 -820L-232 -833L-242 -841L-263 -850L-272 -872L-277 -871L-273 -864L-273 -857L-275 -849L-278 -842L-288 -835L-290 -831L-287 -826L-282 -824L-266 -830L-259 -829L-239 -822L-218 -819L-171 -795L-164 -785L-151 -779L-132 -761L-126 -758L-109 -752L-90 -736L-81 -739L-77 -734L-76 -727L-74 -712L-85 -720L-91 -721L-97 -721L-114 -713L-122 -706L-134 -697L-144 -695L-148 -692L-153 -680L-161 -687L-165 -683L-164 -679L-161 -676L-157 -674L-128 -676L-115 -680L-111 -679L-109 -673L-115 -666L-132 -658L-149 -653L-167 -651L-167 -648L-138 -648L-125 -651L-106 -660L-101 -657L-96 -648L-90 -651L-87 -660L-99 -664L-102 -667L-100 -671L-91 -672L-72 -680L-49 -708L-41 -719L-36 -713L-35 -717L-38 -727L-35 -729L-20 -723L-14 -726L-14 -728L-20 -731L-32 -733L-37 -739L-40 -746L-37 -749L-31 -749L-7 -742L28 -745L51 -752L65 -769L80 -779L85 -789L94 -791L97 -802L102 -802L108 -794L117 -803L123 -804L128 -797L130 -796L136 -796L144 -801L151 -800L154 -801L156 -814L167 -811L168 -824L170 -824L160 -827L162 -833L161 -837L155 -843L160 -850L171 -856L180 -865L201 -881L207 -899L210 -901L232 -903L253 -910L284 -925L332 -939L340 -944L356 -943L371 -954L378 -955L450 -941L455 -943L455 -948L442 -955L437 -957L419 -956L414 -957L399 -967L373 -972L366 -972L355 -968L339 -954L332 -955L327 -962L315 -969L310 -974L312 -982L316 -991L325 -1000L331 -1002L349 -1000L355 -1010L362 -1011L383 -1008L385 -1006L391 -1009L398 -1011L406 -1010L416 -1002L423 -999L431 -998L437 -1000L441 -995L463 -999L459 -997L462 -992L478 -993L501 -988L498 -980L503 -981L514 -987L518 -982L533 -992L535 -988L542 -984L550 -974L551 -971L548 -965L558 -968L556 -956L561 -940L579 -904L586 -898L597 -896L603 -893L606 -887L593 -889L589 -885L588 -880L590 -865L596 -861L605 -851L618 -848L621 -843L615 -843L609 -846L608 -844L607 -843L614 -835L614 -832L604 -828L602 -823L605 -818L610 -814L609 -811L603 -810L591 -803L579 -799L560 -785L532 -776L518 -767L510 -753L522 -758L534 -767L535 -761L532 -756L540 -756L548 -759L550 -759L561 -750L564 -750L557 -734L563 -734L566 -730L567 -724L565 -715L562 -707L549 -691L559 -696L568 -692L571 -693L569 -704L574 -712L606 -736L606 -741L603 -744L599 -741L607 -750L607 -764L620 -770L624 -775L622 -781L642 -805L651 -808L665 -802L670 -802L677 -807L681 -807L686 -802L688 -807L694 -804L697 -806L698 -810L695 -813L704 -814L721 -801L732 -798L732 -801L724 -809L724 -812L729 -812L727 -820L729 -820L732 -815L744 -823L752 -824L759 -828L769 -819L772 -813L768 -809L775 -803L771 -801L756 -801L744 -797L735 -792L731 -785L729 -785L701 -788L705 -784L723 -777L731 -772L769 -760L777 -760L788 -767L796 -765L809 -755L804 -752L793 -755L788 -752L792 -749L811 -747L817 -748L827 -752L832 -752L838 -747L855 -746L860 -745L873 -732L870 -725L871 -722L866 -715L864 -715L861 -717L863 -722L856 -723L854 -725L859 -727L852 -731L823 -737L813 -737L807 -735L812 -728L855 -705L860 -698L859 -687L875 -679L875 -676L865 -672L857 -663L863 -660L878 -673L884 -674L890 -671L899 -663L899 -660L891 -655L902 -655L908 -650L910 -647L909 -646L890 -641L886 -638L891 -636L903 -637L907 -634L910 -626L906 -621L896 -614L908 -608L912 -609L915 -612L917 -618L921 -619L924 -617L922 -611L912 -597L901 -601L908 -589L919 -585L916 -582L922 -574L902 -555L896 -555L882 -562L876 -563L876 -560L885 -557L889 -552L891 -547L888 -538L884 -531L878 -527L872 -525L866 -527L855 -532L849 -533L824 -531L824 -528L843 -525L837 -515L834 -512L830 -512L833 -506L836 -505L850 -518L875 -514L883 -510L888 -501L881 -498L886 -494L894 -491L899 -486L896 -477L903 -468L905 -454L903 -450L889 -450L883 -444L864 -443L861 -440L859 -436L876 -436L871 -431L864 -429L858 -429L852 -431L845 -437L828 -444L822 -444L823 -439L828 -432L833 -428L845 -424L850 -420L853 -411L852 -411L852 -406L857 -406L865 -393L870 -390L883 -393L904 -393L908 -391L912 -381L917 -379L915 -376L907 -371L913 -369L902 -358L898 -364L893 -365L883 -363L878 -365L870 -374L866 -374L846 -382L835 -383L829 -376L845 -376L853 -375L862 -365L862 -364L847 -353L845 -349L853 -349L857 -346L859 -341L856 -339L852 -339L840 -346L829 -346L806 -334L800 -336L795 -342L788 -347L774 -351L759 -349L754 -355L743 -356L754 -347L759 -345L776 -345L795 -333L819 -332L821 -334L824 -337L829 -337L838 -335L846 -336L853 -325L875 -322L894 -328L891 -317L908 -319L914 -316L909 -299L928 -299L935 -297L935 -292L931 -281L935 -277L934 -271L932 -266L928 -263L925 -264L912 -274L897 -273L899 -269L904 -264L906 -260L905 -255L902 -255L888 -259L872 -268L858 -271L816 -295L809 -296L812 -290L817 -284L827 -277L848 -275L855 -269L862 -266L866 -257L893 -251L893 -248L885 -243L885 -240L893 -242L896 -241L894 -238L902 -238L905 -232L918 -238L919 -236L913 -229L903 -224L898 -216L913 -221L918 -222L938 -208L933 -205L918 -208L910 -205L908 -209L901 -202L906 -201L915 -195L920 -194L917 -178L921 -165L914 -156L901 -156L894 -152L903 -142L897 -133L891 -128L879 -121L873 -121L863 -126L856 -126L869 -111L871 -106L869 -97L866 -91L862 -87L843 -76L838 -75L829 -63L821 -60L807 -44L799 -31L794 -27L789 -24L772 -24L769 -22L767 -15L759 -5L755 -3L750 -7L747 -7L744 5L742 9L719 30L714 32L700 32L697 33L693 59L692 62L686 64L681 69L677 79L670 84L672 89L667 99L660 104L652 103L646 93L640 104L642 109L643 115L641 120L637 123L624 122L620 124L618 120L609 123L596 119L594 123L590 121L583 112L578 100L582 90L577 83L570 83L553 87L545 91L536 88L533 90L535 95L536 100L534 102L530 103L526 94L523 99L500 105L506 92L502 92L495 99L484 102L481 96L482 84L472 87L468 89L463 110L462 111L459 109L457 106L458 97L454 99L448 107L440 110L429 120L417 134L403 138L401 136L399 138L384 143L378 140L371 146L359 147L355 146L352 140L354 127L352 125L346 124L350 128L344 140L346 147L336 145L317 132L307 128L275 149L274 143L271 139L268 139L265 145L269 152L269 155L266 156L260 154L258 146L256 146L255 150L256 157L259 163L275 173L272 174L267 185L256 188L245 200L230 204L227 203L222 210L219 209L218 205L215 208L212 217L216 218L217 222L209 230L202 239L197 237L204 222L202 217L197 216L193 218L182 228L177 227L174 230L177 234L185 233L187 235L182 253L187 259L186 266L183 273L187 275L189 279L183 281L182 287L185 299L184 302L178 306L175 313L166 316L168 321L171 324L164 327L157 323L152 315L150 304L152 299L159 285L159 276L157 274L154 276L151 282L143 308L128 324L128 328L124 333L115 324L111 322L109 325L109 335L107 338L101 340L95 344L88 354L83 358L70 358L68 363L73 366L70 370L61 372L56 385L60 388L67 388L70 393L70 400L66 405L59 407L49 406L45 403L34 412L27 426L24 428L9 430L-1 435L-9 436L-17 444L-20 441L-25 443L-28 441L-44 462L-50 467L-50 470L-43 472L-45 481L-43 485L-40 486L-37 478L-35 475L-34 479L-36 486L-42 492L-64 503L-66 512L-72 508L-75 508L-84 519L-90 519L-96 515L-98 518L-105 520L-108 526L-114 531L-115 530L-113 523L-123 523L-119 516L-117 501L-123 501L-129 506L-141 522L-147 519L-142 514L-138 506L-142 508L-145 508L-148 498L-150 502L-151 514L-153 517L-167 514L-171 517L-168 522L-169 524L-171 525L-173 524L-175 518L-182 513L-185 517L-189 518L-191 516L-189 511L-204 513L-215 524L-230 527L-235 525L-234 513L-242 521L-246 523L-260 523L-258 517L-263 517L-268 520L-275 529L-279 531L-285 524L-289 525L-287 518L-283 513L-273 509L-280 506L-288 510L-314 532L-316 531L-319 524L-326 527L-336 521L-341 521L-342 523L-343 529L-350 526L-357 529L-361 534L-368 529L-371 530L-369 536L-372 536L-382 530L-387 528L-409 530L-439 541L-459 544L-479 554L-494 557L-508 564L-514 565L-530 563L-530 561L-525 560L-517 554L-481 543L-478 541L-476 537L-476 532L-480 530L-485 537L-492 540L-507 542L-520 550L-528 551L-535 547L-532 536L-537 529L-542 523L-544 517L-548 513L-553 512L-563 512L-573 508L-578 512L-583 513L-547 -1139L552 -1109L548 -1106ZM-703 2143L-686 2134L-683 2134L-680 2137L-679 2140L-686 2148L-684 2171L-680 2189L-680 2195L-682 2201L-678 2205L-668 2210L-658 2220L-637 2231L-631 2232L-620 2225L-616 2227L-621 2228L-622 2230L-615 2235L-611 2226L-606 2224L-602 2214L-597 2210L-592 2208L-580 2208L-575 2211L-567 2223L-558 2229L-551 2248L-549 2250L-544 2259L-526 2274L-520 2275L-520 2290L-523 2295L-551 2309L-556 2311L-556 2306L-560 2307L-571 2316L-585 2323L-580 2330L-577 2332L-497 2331L-483 2336L-462 2339L-458 2342L-455 2347L-455 2362L-459 2362L-462 2354L-470 2353L-472 2351L-468 2362L-470 2365L-476 2368L-480 2376L-484 2374L-483 2379L-495 2382L-500 2381L-503 2374L-494 2361L-506 2364L-509 2366L-510 2372L-508 2381L-510 2386L-512 2384L-515 2374L-518 2368L-519 2370L-527 2373L-532 2373L-531 2368L-535 2367L-541 2369L-554 2380L-558 2386L-559 2390L-552 2390L-561 2398L-565 2400L-611 2405L-622 2403L-629 2394L-632 2401L-641 2394L-645 2396L-637 2404L-630 2414L-639 2416L-631 2424L-631 2426L-645 2425L-647 2419L-650 2421L-661 2421L-661 2428L-674 2421L-678 2421L-675 2428L-687 2428L-687 2431L-683 2434L-682 2437L-683 2440L-685 2441L-693 2438L-695 2440L-694 2445L-698 2446L-703 2444L-707 2437L-709 2448L-714 2443L-718 2444L-724 2451L-706 2146L-703 2143ZM1683 1591L1682 1607L1678 1607L1667 1618L1675 1625L1676 1629L1673 1640L1665 1652L1660 1678L1657 1681L1645 1683L1650 1686L1655 1686L1653 1691L1650 1693L1643 1696L1646 1702L1643 1708L1638 1731L1636 1734L1633 1756L1631 1761L1627 1763L1618 1762L1614 1763L1635 1774L1635 1777L1633 1779L1629 1777L1633 1790L1624 1796L1622 1800L1625 1807L1621 1808L1621 1811L1624 1817L1616 1830L1607 1854L1608 1862L1604 1875L1598 1877L1593 1885L1586 1885L1579 1891L1567 1915L1561 1920L1547 1924L1538 1924L1534 1922L1530 1918L1525 1909L1521 1896L1518 1883L1519 1873L1515 1874L1511 1878L1503 1886L1502 1886L1498 1875L1495 1876L1487 1885L1497 1866L1492 1866L1475 1881L1472 1887L1464 1888L1455 1895L1446 1895L1438 1889L1430 1874L1428 1860L1429 1849L1439 1829L1438 1815L1441 1809L1451 1797L1457 1786L1468 1787L1472 1782L1461 1781L1457 1783L1438 1807L1430 1812L1433 1795L1440 1784L1445 1771L1465 1764L1466 1758L1460 1762L1457 1762L1454 1760L1456 1755L1455 1750L1453 1749L1448 1756L1442 1752L1447 1745L1445 1743L1436 1743L1441 1737L1454 1728L1457 1725L1454 1722L1477 1714L1473 1713L1471 1710L1473 1704L1459 1705L1463 1695L1453 1707L1446 1712L1437 1713L1444 1703L1440 1703L1434 1708L1429 1716L1422 1718L1424 1720L1422 1722L1416 1725L1405 1725L1391 1745L1378 1750L1374 1761L1367 1766L1361 1768L1358 1777L1356 1779L1347 1779L1333 1793L1322 1794L1317 1790L1305 1786L1301 1783L1300 1764L1301 1757L1310 1729L1321 1715L1341 1675L1343 1674L1361 1677L1346 1669L1343 1665L1344 1657L1351 1658L1349 1660L1353 1661L1364 1660L1364 1656L1372 1654L1378 1649L1367 1648L1374 1641L1385 1637L1398 1635L1398 1634L1391 1633L1387 1629L1372 1631L1370 1630L1367 1624L1372 1618L1377 1608L1378 1605L1373 1603L1376 1591L1376 1584L1373 1579L1368 1581L1364 1572L1364 1560L1357 1537L1359 1533L1357 1530L1353 1531L1351 1527L1348 1513L1350 1509L1341 1514L1336 1514L1332 1508L1334 1504L1336 1503L1331 1488L1331 1483L1328 1488L1327 1498L1324 1501L1320 1500L1309 1486L1308 1477L1282 1458L1286 1465L1297 1473L1301 1478L1302 1485L1300 1492L1293 1514L1287 1527L1278 1536L1270 1533L1266 1529L1268 1543L1266 1549L1260 1557L1257 1564L1249 1572L1245 1579L1234 1586L1238 1590L1239 1587L1244 1600L1248 1603L1237 1608L1238 1601L1236 1599L1233 1599L1224 1611L1228 1612L1231 1610L1232 1612L1225 1616L1221 1617L1220 1615L1203 1620L1200 1614L1201 1612L1209 1609L1239 1570L1245 1558L1243 1555L1230 1570L1222 1574L1214 1590L1202 1603L1190 1608L1189 1610L1186 1607L1184 1602L1182 1603L1178 1608L1181 1613L1179 1614L1174 1611L1173 1607L1167 1610L1165 1608L1163 1603L1158 1606L1152 1606L1158 1594L1157 1591L1154 1590L1150 1604L1147 1601L1146 1597L1149 1589L1145 1590L1141 1601L1130 1613L1130 1620L1123 1627L1118 1629L1112 1641L1110 1648L1115 1651L1118 1655L1116 1662L1110 1667L1105 1667L1105 1658L1104 1653L1099 1651L1095 1654L1089 1664L1101 1663L1103 1667L1102 1677L1106 1688L1106 1693L1099 1693L1100 1700L1090 1705L1087 1709L1085 1718L1079 1714L1081 1700L1079 1697L1074 1699L1073 1704L1075 1716L1072 1731L1068 1736L1063 1740L1063 1747L1057 1754L1041 1761L1025 1761L1025 1766L1027 1773L1020 1776L1011 1778L1001 1776L996 1770L998 1758L986 1764L982 1764L981 1757L978 1760L977 1769L974 1772L971 1770L967 1771L947 1786L937 1789L928 1788L925 1788L922 1793L918 1791L912 1790L892 1791L865 1783L857 1775L856 1771L857 1764L870 1749L883 1731L895 1726L911 1716L933 1717L942 1711L962 1704L989 1690L995 1675L1003 1670L1012 1658L1020 1653L1036 1637L1039 1631L1035 1617L1037 1606L1035 1594L1036 1588L1051 1571L1056 1568L1065 1566L1069 1563L1086 1563L1101 1558L1109 1559L1110 1558L1108 1551L1110 1550L1123 1551L1132 1545L1134 1542L1133 1536L1127 1540L1125 1537L1132 1527L1147 1522L1158 1521L1165 1516L1168 1516L1163 1513L1148 1512L1149 1508L1135 1518L1118 1523L1099 1525L1070 1525L1065 1523L1067 1517L1077 1505L1079 1495L1096 1474L1099 1462L1087 1473L1070 1504L1060 1515L1064 1523L1061 1528L1055 1529L1048 1522L1048 1518L1050 1500L1040 1508L1034 1509L1022 1501L1000 1497L996 1495L994 1495L993 1499L986 1501L984 1494L982 1492L981 1488L987 1479L983 1476L984 1471L982 1471L976 1476L980 1482L976 1484L974 1485L971 1479L966 1476L965 1478L967 1494L960 1508L959 1513L963 1517L966 1516L969 1511L973 1509L980 1516L972 1527L974 1529L983 1524L983 1527L980 1529L983 1535L980 1548L985 1553L985 1560L979 1572L974 1575L957 1577L950 1586L945 1603L941 1605L940 1602L940 1596L938 1590L938 1588L940 1585L940 1583L934 1585L926 1592L921 1593L927 1585L931 1567L932 1564L936 1561L927 1551L921 1550L919 1558L926 1557L923 1566L918 1572L909 1568L905 1569L910 1576L902 1584L893 1590L894 1578L891 1571L894 1556L890 1560L887 1568L886 1576L888 1582L885 1589L881 1589L873 1584L866 1591L860 1601L860 1593L876 1570L889 1543L894 1536L884 1543L879 1551L879 1547L875 1548L867 1562L863 1559L852 1572L838 1578L821 1592L818 1591L810 1582L809 1577L812 1571L816 1569L833 1564L854 1549L859 1549L861 1544L865 1541L869 1535L880 1529L894 1513L903 1508L918 1496L913 1495L907 1497L895 1505L879 1523L873 1525L868 1523L862 1518L858 1511L858 1501L861 1494L876 1476L873 1471L879 1461L879 1453L882 1451L883 1448L879 1444L881 1436L890 1423L887 1421L890 1414L900 1402L899 1394L897 1391L895 1390L894 1400L882 1414L883 1417L878 1428L871 1456L866 1462L846 1475L834 1495L829 1499L824 1498L823 1496L826 1493L824 1487L835 1465L828 1475L826 1474L821 1442L820 1449L822 1461L821 1476L819 1482L813 1492L816 1493L818 1500L815 1504L808 1508L811 1511L808 1517L813 1522L809 1527L806 1527L804 1517L802 1517L799 1527L795 1529L787 1529L790 1506L792 1501L790 1498L789 1493L791 1480L787 1497L784 1499L784 1502L787 1506L787 1516L785 1527L781 1534L776 1537L772 1538L759 1537L751 1533L742 1535L724 1532L719 1534L721 1538L726 1542L728 1546L721 1551L714 1544L709 1529L706 1534L711 1549L715 1552L715 1555L698 1569L695 1566L692 1569L687 1569L686 1567L688 1561L684 1565L679 1564L669 1551L664 1550L636 1559L631 1558L627 1554L634 1544L630 1534L623 1549L620 1551L613 1548L597 1556L595 1555L593 1552L593 1547L597 1538L596 1534L585 1540L577 1538L558 1540L551 1539L553 1534L547 1537L540 1543L527 1553L523 1552L519 1541L516 1538L504 1532L499 1534L496 1544L493 1547L488 1540L481 1542L474 1534L469 1532L454 1534L460 1523L466 1517L455 1517L450 1524L446 1525L432 1523L427 1517L423 1515L417 1524L412 1524L410 1522L415 1518L415 1516L407 1516L380 1524L368 1529L354 1522L350 1522L334 1533L330 1531L334 1521L347 1502L355 1497L363 1494L345 1494L337 1498L329 1505L317 1528L309 1535L297 1529L291 1528L285 1531L282 1524L279 1523L276 1523L280 1528L277 1530L266 1531L255 1539L248 1541L245 1536L242 1536L224 1544L205 1545L159 1541L150 1544L146 1548L138 1545L128 1549L101 1553L86 1551L79 1546L68 1547L62 1536L50 1532L48 1529L51 1524L50 1515L53 1502L64 1480L57 1479L53 1475L54 1459L47 1453L45 1445L38 1434L40 1425L51 1418L65 1417L72 1407L92 1389L116 1374L167 1352L177 1345L197 1324L213 1318L231 1300L254 1285L266 1271L271 1256L282 1252L298 1234L307 1228L318 1226L318 1228L296 1240L289 1248L294 1247L307 1239L324 1233L328 1229L338 1211L341 1209L357 1203L371 1200L375 1197L374 1195L365 1193L348 1198L339 1203L334 1209L330 1204L324 1203L311 1207L306 1206L296 1196L290 1193L261 1190L224 1202L196 1205L169 1203L156 1205L111 1220L104 1220L110 1210L115 1195L120 1189L146 1169L184 1144L226 1105L234 1101L224 1119L218 1126L206 1133L199 1142L191 1153L188 1161L189 1167L191 1170L206 1178L206 1189L208 1191L218 1179L220 1174L218 1159L220 1159L223 1177L230 1184L235 1187L244 1187L258 1185L264 1172L264 1122L272 1102L274 1088L284 1069L286 1062L288 1041L290 1039L288 1010L297 996L298 990L300 967L304 959L310 954L312 953L315 956L317 960L316 966L312 969L318 968L319 971L315 978L315 982L319 986L322 986L333 980L352 979L362 981L371 987L386 1004L395 1010L433 1013L442 1009L435 1005L409 1007L399 1003L381 990L369 970L367 958L368 955L385 957L399 953L416 955L422 953L433 934L430 931L423 941L419 945L413 947L406 945L405 942L408 938L414 935L413 932L392 946L379 950L370 943L371 938L392 939L398 935L402 929L409 914L391 924L384 925L359 923L345 919L340 915L335 910L333 904L330 874L332 860L336 848L346 832L355 821L362 817L369 807L374 804L382 805L388 809L394 815L399 841L403 848L410 851L402 836L401 829L406 824L413 824L435 837L450 839L451 837L447 834L424 822L418 815L416 803L410 816L406 817L404 815L399 802L391 793L392 788L386 783L385 771L386 755L389 742L398 719L402 711L411 701L416 683L417 678L425 664L430 647L443 626L451 602L460 589L470 566L481 548L486 529L504 496L506 489L505 484L507 482L514 467L522 457L524 450L536 440L550 414L557 412L573 421L581 424L589 420L591 417L589 415L574 416L566 412L567 410L574 409L572 404L563 402L559 389L547 385L544 382L544 378L556 375L558 380L567 379L577 377L584 371L592 374L613 361L619 350L625 346L633 337L634 326L638 327L644 326L641 320L637 316L634 319L630 311L637 306L634 303L626 302L622 298L620 287L616 282L611 280L615 279L627 284L633 297L646 292L650 289L649 282L646 279L637 276L634 272L642 273L650 272L656 267L658 253L672 245L674 241L674 236L670 223L675 218L679 221L683 222L679 212L673 203L680 193L683 181L689 172L700 160L736 135L747 131L757 129L761 127L774 110L791 104L796 95L801 90L823 78L829 70L867 35L869 40L872 41L882 36L870 59L869 67L877 65L866 89L870 91L881 87L896 86L921 95L928 91L925 89L916 88L913 84L911 69L900 63L903 53L906 50L903 62L908 57L919 43L925 38L921 45L925 54L929 55L934 55L937 54L934 51L952 39L960 42L960 48L963 43L972 44L976 47L977 54L974 59L961 55L970 64L969 74L964 80L957 77L946 78L948 83L958 91L964 89L963 96L953 133L949 137L945 132L937 128L936 139L937 141L940 143L939 145L936 149L931 149L927 147L927 156L930 164L925 167L915 157L910 155L883 151L869 157L865 157L854 148L851 147L854 156L848 158L839 147L833 143L832 155L827 150L822 150L820 171L833 174L836 176L837 191L834 195L830 195L837 203L827 208L824 211L836 217L844 238L847 242L851 242L849 233L849 224L859 221L873 207L892 210L899 219L902 224L899 230L897 238L897 243L901 245L902 247L897 263L898 269L896 275L888 283L882 277L882 286L889 291L881 304L875 320L879 336L875 339L871 328L867 337L866 348L869 346L872 348L867 354L864 365L861 352L859 353L850 364L845 378L834 396L824 407L816 419L811 417L815 406L811 410L808 409L805 402L808 392L807 383L815 354L809 355L805 359L799 373L804 373L805 378L802 392L797 400L800 406L798 411L798 419L800 428L804 431L812 433L810 436L789 458L781 462L778 466L775 477L773 479L757 478L757 480L767 483L768 485L756 498L744 508L732 522L729 522L724 515L713 516L717 522L723 523L728 526L726 537L723 544L713 559L707 563L708 570L703 577L684 596L681 598L672 596L669 597L676 605L675 609L657 628L654 633L647 661L647 673L653 662L658 659L660 663L657 683L658 690L652 694L652 698L655 702L655 707L649 717L633 727L629 733L651 739L653 742L661 745L664 757L664 784L665 795L661 811L665 809L668 804L679 773L679 761L698 716L703 710L705 702L713 696L719 684L723 682L738 702L739 700L733 686L733 680L737 674L749 682L740 664L748 638L752 630L762 624L769 608L787 595L791 593L798 592L797 599L804 600L805 602L801 603L813 612L814 617L804 633L800 653L790 671L798 668L805 660L815 641L830 635L833 635L835 640L833 645L827 652L836 656L839 648L840 637L843 632L861 636L869 642L877 650L875 650L877 654L890 664L895 663L897 665L901 671L907 674L916 673L921 665L918 662L924 659L946 660L967 646L977 665L978 671L977 677L973 681L954 687L939 703L929 706L926 716L905 724L874 748L871 748L861 743L860 748L865 753L862 758L852 765L856 771L852 780L841 793L840 796L841 805L843 811L846 816L854 790L864 776L877 764L888 761L893 757L895 760L897 763L887 770L882 771L884 774L891 772L896 766L899 770L912 769L912 775L908 779L909 789L899 803L903 808L907 809L916 809L915 823L909 834L901 841L892 843L886 850L881 851L881 860L874 875L890 869L903 854L910 848L928 840L938 839L950 842L949 850L956 850L966 857L964 858L958 857L956 858L956 862L953 867L958 868L965 866L975 858L975 877L981 877L982 888L984 892L988 893L990 890L991 875L996 857L1001 850L1008 848L1004 875L1006 881L1006 891L1008 900L1014 887L1013 871L1015 868L1018 867L1015 862L1016 853L1021 861L1023 859L1024 847L1027 844L1040 841L1039 847L1043 844L1045 846L1036 867L1033 872L1033 875L1039 872L1050 861L1056 863L1053 867L1044 890L1037 897L1035 902L1046 896L1050 899L1050 910L1056 883L1060 882L1058 888L1061 888L1066 883L1066 895L1058 902L1062 908L1066 918L1069 915L1066 906L1067 903L1074 899L1078 887L1069 874L1065 862L1064 851L1049 830L1055 829L1060 824L1068 828L1071 831L1069 835L1073 839L1077 840L1072 829L1084 823L1089 826L1086 826L1086 829L1089 832L1095 843L1096 856L1089 871L1092 876L1091 883L1088 886L1085 882L1082 896L1083 906L1087 917L1089 938L1085 944L1081 946L1075 951L1069 967L1062 975L1061 978L1063 980L1072 981L1069 994L1073 994L1075 997L1075 1003L1070 1012L1061 1023L1064 1022L1074 1013L1083 1013L1087 1011L1102 995L1102 993L1097 994L1087 1002L1083 1001L1080 993L1081 984L1086 970L1085 967L1078 970L1078 966L1081 960L1086 958L1095 948L1124 927L1122 923L1124 921L1118 910L1114 899L1124 910L1129 912L1131 905L1137 925L1139 932L1138 938L1129 952L1132 953L1139 946L1145 927L1148 925L1154 925L1157 933L1160 935L1164 931L1166 925L1166 911L1159 905L1159 895L1163 883L1165 881L1169 882L1174 926L1176 934L1180 938L1187 928L1187 909L1191 906L1191 917L1193 920L1196 921L1199 903L1203 899L1209 896L1213 885L1216 883L1215 877L1214 877L1217 870L1234 844L1238 839L1242 837L1263 834L1265 836L1252 848L1250 861L1244 873L1249 868L1256 864L1265 862L1270 865L1264 874L1264 879L1268 884L1259 893L1258 901L1258 906L1259 908L1265 911L1266 918L1260 942L1260 947L1262 946L1265 934L1281 921L1276 914L1278 906L1286 886L1293 884L1305 884L1304 890L1307 891L1316 887L1316 894L1318 894L1326 890L1321 905L1322 912L1328 896L1331 893L1336 904L1341 898L1346 878L1360 874L1362 877L1364 876L1366 871L1370 868L1376 874L1384 877L1381 878L1371 884L1376 887L1393 881L1399 880L1411 892L1429 901L1434 900L1445 909L1456 913L1459 916L1456 919L1460 926L1474 929L1477 931L1477 934L1480 937L1485 937L1484 942L1490 945L1494 945L1497 942L1500 949L1504 952L1505 959L1495 967L1494 974L1483 978L1483 986L1474 999L1466 995L1463 998L1460 1004L1467 1008L1469 1012L1469 1019L1466 1024L1461 1026L1418 1031L1408 1030L1408 1033L1413 1036L1433 1036L1427 1041L1412 1047L1405 1047L1396 1043L1392 1047L1394 1050L1401 1054L1409 1063L1397 1069L1383 1068L1374 1074L1370 1075L1372 1078L1391 1074L1391 1076L1373 1083L1368 1087L1370 1091L1367 1093L1352 1095L1344 1100L1331 1101L1319 1109L1319 1114L1315 1117L1315 1119L1323 1117L1356 1100L1360 1100L1363 1103L1362 1106L1356 1113L1361 1114L1366 1112L1368 1110L1365 1108L1374 1097L1386 1091L1397 1091L1406 1099L1399 1102L1393 1104L1379 1103L1382 1106L1381 1113L1383 1115L1392 1109L1395 1111L1386 1119L1380 1122L1375 1122L1359 1119L1353 1121L1353 1123L1365 1123L1370 1125L1369 1130L1371 1133L1366 1143L1367 1146L1377 1149L1377 1151L1369 1155L1377 1155L1402 1140L1402 1138L1383 1142L1374 1142L1373 1137L1395 1118L1389 1132L1413 1130L1414 1135L1423 1138L1417 1142L1415 1145L1417 1147L1422 1147L1441 1137L1446 1138L1446 1145L1432 1153L1419 1153L1402 1158L1391 1166L1373 1168L1369 1171L1359 1182L1363 1183L1373 1175L1417 1180L1412 1182L1402 1182L1397 1185L1404 1186L1409 1192L1398 1198L1379 1200L1372 1203L1344 1221L1336 1223L1325 1222L1308 1236L1312 1241L1313 1249L1326 1232L1331 1228L1346 1230L1351 1228L1371 1212L1381 1206L1391 1211L1375 1229L1374 1237L1376 1243L1379 1245L1385 1242L1381 1239L1382 1235L1390 1228L1394 1219L1399 1218L1401 1208L1419 1191L1430 1187L1438 1190L1427 1198L1434 1199L1438 1205L1418 1217L1411 1225L1413 1228L1423 1222L1433 1221L1446 1196L1447 1196L1447 1205L1445 1213L1455 1210L1437 1237L1451 1226L1456 1220L1458 1223L1460 1222L1464 1214L1467 1204L1472 1206L1474 1199L1477 1196L1477 1180L1478 1178L1482 1177L1484 1172L1488 1170L1507 1177L1515 1186L1516 1190L1511 1199L1513 1200L1521 1197L1523 1208L1529 1211L1532 1202L1550 1188L1549 1185L1554 1178L1560 1176L1565 1177L1567 1175L1572 1156L1574 1155L1576 1163L1584 1168L1588 1182L1594 1192L1594 1196L1588 1201L1592 1209L1581 1214L1575 1229L1574 1239L1571 1248L1564 1254L1550 1260L1538 1274L1530 1273L1526 1271L1519 1262L1515 1260L1508 1260L1504 1262L1503 1258L1501 1257L1497 1258L1498 1267L1490 1287L1494 1292L1489 1295L1476 1293L1473 1296L1470 1305L1465 1308L1453 1310L1430 1339L1425 1339L1419 1337L1403 1323L1398 1320L1392 1319L1382 1320L1379 1317L1374 1303L1367 1297L1362 1296L1359 1301L1358 1311L1359 1324L1370 1376L1394 1384L1412 1381L1421 1383L1426 1393L1413 1404L1399 1412L1384 1411L1371 1404L1367 1406L1371 1414L1376 1418L1387 1419L1397 1425L1402 1426L1410 1416L1422 1414L1434 1399L1439 1396L1436 1406L1436 1421L1421 1474L1415 1473L1401 1474L1401 1478L1415 1478L1411 1509L1407 1514L1400 1526L1397 1526L1393 1521L1388 1509L1377 1496L1371 1494L1369 1498L1381 1508L1381 1516L1385 1518L1386 1530L1391 1535L1392 1541L1390 1546L1385 1547L1387 1551L1400 1564L1408 1576L1414 1578L1420 1559L1425 1553L1429 1555L1429 1560L1420 1581L1423 1588L1428 1584L1431 1585L1434 1593L1435 1590L1436 1591L1437 1596L1433 1607L1443 1596L1449 1602L1454 1600L1461 1602L1461 1594L1458 1585L1462 1582L1454 1573L1455 1571L1458 1570L1465 1574L1463 1568L1464 1560L1461 1554L1464 1553L1469 1545L1464 1537L1464 1526L1470 1515L1472 1501L1475 1495L1475 1492L1480 1478L1486 1471L1488 1470L1494 1472L1492 1465L1493 1460L1500 1442L1507 1421L1513 1409L1515 1407L1522 1407L1528 1399L1535 1397L1538 1389L1543 1388L1550 1395L1555 1397L1564 1392L1572 1384L1581 1371L1591 1353L1599 1346L1604 1350L1612 1364L1620 1368L1619 1370L1614 1374L1603 1374L1600 1377L1590 1393L1588 1404L1583 1416L1564 1438L1562 1445L1562 1462L1560 1469L1542 1494L1540 1503L1537 1508L1527 1517L1530 1521L1537 1523L1533 1533L1537 1531L1539 1536L1536 1539L1531 1552L1518 1560L1516 1564L1519 1569L1524 1564L1530 1562L1522 1572L1521 1577L1526 1576L1538 1564L1536 1571L1531 1577L1521 1586L1529 1590L1538 1584L1543 1603L1541 1614L1541 1619L1549 1608L1552 1608L1552 1613L1554 1616L1546 1632L1548 1634L1557 1629L1563 1632L1563 1640L1571 1619L1580 1614L1594 1597L1608 1584L1612 1578L1620 1552L1624 1505L1629 1488L1635 1482L1641 1493L1652 1497L1653 1498L1656 1514L1652 1531L1655 1535L1666 1533L1668 1534L1670 1557L1664 1578L1667 1575L1672 1585L1683 1591ZM854 1513L856 1520L866 1528L860 1532L850 1534L834 1530L830 1526L823 1526L821 1524L822 1517L827 1511L848 1501L853 1501L856 1504L854 1513ZM314 183L307 193L298 199L280 205L277 212L268 207L285 187L305 179L314 183ZM873 -707L893 -712L895 -707L908 -704L911 -708L918 -704L922 -703L925 -698L926 -689L918 -695L913 -695L910 -686L921 -678L920 -675L911 -680L909 -678L916 -671L913 -671L906 -676L898 -679L888 -681L884 -685L875 -686L871 -690L870 -701L873 -707ZM795 1794L792 1803L783 1812L769 1822L766 1823L763 1822L762 1818L762 1813L759 1810L758 1806L770 1794L774 1782L772 1770L762 1745L762 1739L761 1719L767 1710L770 1710L772 1712L766 1718L766 1722L769 1726L780 1729L792 1739L791 1750L785 1759L781 1760L780 1756L774 1758L770 1757L770 1762L779 1764L779 1767L777 1770L778 1786L787 1787L795 1794ZM1311 1578L1308 1587L1308 1594L1302 1600L1285 1623L1279 1625L1260 1619L1258 1616L1282 1601L1293 1589L1294 1583L1286 1583L1288 1580L1306 1567L1302 1574L1305 1577L1316 1556L1318 1555L1319 1557L1318 1563L1311 1578ZM1149 822L1142 810L1144 805L1152 807L1156 802L1166 804L1170 806L1168 819L1174 822L1185 823L1195 819L1200 815L1202 803L1204 797L1209 794L1213 794L1210 799L1215 802L1230 789L1235 787L1234 790L1235 791L1239 801L1239 805L1235 812L1235 817L1219 824L1195 830L1188 834L1186 836L1186 849L1176 845L1159 850L1153 846L1159 840L1169 838L1164 834L1159 832L1153 823L1149 822ZM1307 823L1302 790L1305 788L1313 790L1317 789L1312 786L1309 780L1312 775L1306 775L1311 769L1318 770L1331 779L1329 782L1333 790L1335 785L1334 772L1337 769L1343 771L1346 770L1342 762L1352 762L1357 764L1367 777L1372 779L1371 787L1374 794L1378 797L1387 799L1385 804L1382 804L1374 801L1368 807L1360 809L1353 815L1339 817L1325 821L1316 830L1311 828L1307 823ZM-580 1538L-595 1556L-608 1563L-620 1574L-627 1577L-618 1580L-608 1574L-575 1537L-565 1530L-554 1529L-563 1533L-571 1540L-586 1556L-603 1582L-607 1584L-618 1582L-622 1585L-630 1602L-640 1602L-648 1607L-658 1627L-653 1635L-648 1636L-644 1629L-638 1638L-624 1643L-620 1643L-613 1635L-616 1644L-622 1649L-630 1649L-637 1649L-637 1645L-654 1651L-666 1651L-669 1649L-668 1634L-653 1608L-651 1591L-648 1584L-637 1577L-621 1572L-544 1505L-537 1502L-529 1501L-498 1501L-497 1504L-503 1511L-516 1516L-522 1528L-531 1532L-539 1533L-543 1530L-530 1522L-524 1516L-520 1508L-535 1508L-542 1510L-568 1532L-574 1534L-580 1538ZM873 1666L863 1663L858 1665L858 1662L865 1657L872 1654L878 1654L880 1660L884 1661L878 1669L876 1664L873 1666ZM1326 1569L1329 1563L1329 1550L1332 1553L1334 1562L1333 1571L1328 1575L1329 1588L1332 1592L1332 1595L1331 1598L1327 1599L1330 1602L1326 1612L1322 1608L1326 1593L1322 1594L1326 1569ZM1453 1324L1458 1327L1459 1334L1455 1338L1458 1347L1457 1353L1450 1370L1455 1370L1448 1382L1436 1382L1413 1371L1392 1373L1376 1364L1372 1343L1362 1321L1361 1309L1364 1305L1369 1311L1378 1326L1383 1330L1400 1330L1405 1334L1416 1346L1422 1347L1428 1345L1447 1331L1453 1324ZM1208 862L1203 865L1206 873L1203 885L1200 886L1194 883L1189 877L1187 868L1189 863L1199 858L1203 850L1209 853L1213 858L1210 862L1208 862ZM958 821L970 822L973 830L970 838L965 844L959 842L957 838L955 826L955 822L958 821ZM985 802L986 806L972 812L966 818L962 819L956 818L953 814L953 797L958 791L963 791L963 797L969 797L972 800L972 805L981 804L983 802L985 802ZM83 381L78 368L80 363L84 361L89 366L98 393L98 396L87 406L84 406L83 401L92 379L89 376L85 381L83 381ZM944 315L937 326L935 331L941 343L936 344L931 342L923 337L926 332L925 329L920 317L928 314L938 305L942 303L946 309L944 315ZM320 152L303 163L282 156L288 148L296 142L301 141L312 143L317 141L318 150L320 152ZM-111 2106L-124 2104L-130 2102L-129 2099L-106 2092L-105 2093L-109 2096L-110 2104L-111 2106ZM1168 1636L1165 1640L1164 1644L1162 1647L1158 1643L1156 1636L1164 1633L1168 1636ZM1301 1624L1306 1626L1309 1630L1307 1638L1301 1639L1293 1637L1291 1635L1292 1631L1297 1629L1301 1624ZM1601 1544L1602 1551L1589 1568L1581 1569L1575 1567L1576 1559L1591 1544L1601 1544ZM865 576L870 577L872 579L867 584L856 581L857 579L864 579L865 576ZM878 571L896 571L901 575L906 583L902 585L897 582L881 578L877 574L878 571ZM208 298L211 314L207 318L203 316L202 312L208 298ZM580 340L581 342L585 341L590 349L582 351L581 354L578 356L574 353L578 352L572 349L571 343L574 340L580 340ZM342 161L337 166L329 172L318 171L317 163L323 158L342 155L342 161ZM884 -428L902 -426L902 -410L897 -409L890 -410L889 -415L885 -418L882 -423L884 -428ZM908 -522L911 -523L914 -520L911 -515L915 -515L915 -512L912 -507L909 -496L906 -495L896 -513L896 -518L906 -519L908 -522ZM911 -553L916 -552L919 -546L920 -540L916 -536L918 -530L914 -528L908 -529L904 -526L892 -527L891 -539L894 -544L898 -548L902 -548L911 -553ZM817 1813L812 1823L817 1825L812 1828L798 1829L794 1826L806 1813L813 1812L817 1813ZM954 373L960 374L964 376L957 383L960 388L953 394L950 398L950 401L946 406L932 416L928 410L926 409L924 412L917 409L917 406L922 395L922 387L923 383L925 382L927 383L929 389L954 373ZM981 -75L977 -78L979 -89L988 -106L1000 -112L1011 -123L1015 -125L1014 -115L999 -82L994 -76L981 -75ZM-433 2252L-431 2251L-426 2256L-427 2259L-429 2260L-435 2260L-445 2268L-448 2273L-445 2280L-460 2293L-465 2290L-460 2284L-459 2281L-472 2279L-475 2277L-481 2270L-485 2269L-486 2261L-465 2251L-446 2250L-439 2252L-435 2255L-433 2252ZM-212 2175L-240 2186L-245 2190L-251 2203L-256 2207L-279 2215L-299 2230L-317 2232L-320 2227L-330 2235L-361 2246L-372 2254L-381 2254L-387 2256L-389 2256L-390 2254L-390 2247L-392 2246L-416 2242L-418 2230L-422 2227L-432 2238L-439 2233L-442 2233L-442 2239L-448 2240L-462 2238L-458 2240L-460 2245L-463 2246L-471 2246L-479 2252L-497 2258L-502 2257L-497 2255L-496 2253L-496 2250L-499 2247L-509 2245L-509 2239L-514 2249L-518 2247L-528 2254L-527 2261L-530 2261L-543 2254L-549 2237L-562 2221L-568 2211L-570 2201L-573 2164L-578 2156L-575 2136L-583 2120L-580 2114L-581 2099L-587 2092L-588 2088L-585 2081L-567 2070L-561 2044L-541 2027L-513 2009L-512 2005L-494 1978L-483 1959L-460 1935L-458 1930L-454 1914L-441 1894L-447 1882L-443 1873L-435 1868L-440 1878L-439 1885L-433 1871L-424 1864L-422 1861L-416 1848L-402 1823L-393 1812L-383 1804L-366 1797L-347 1775L-329 1740L-318 1730L-315 1729L-310 1733L-297 1736L-292 1742L-288 1743L-282 1742L-271 1735L-264 1734L-261 1737L-266 1745L-276 1756L-294 1780L-288 1780L-283 1782L-280 1784L-284 1788L-284 1790L-278 1792L-259 1792L-254 1788L-247 1796L-246 1804L-253 1835L-260 1853L-262 1856L-275 1862L-271 1867L-265 1867L-265 1869L-272 1872L-264 1881L-264 1887L-272 1894L-284 1914L-298 1950L-311 1969L-318 1985L-332 2006L-340 2025L-339 2030L-322 2003L-317 2001L-304 1987L-293 1982L-289 1983L-288 1986L-292 2000L-305 2011L-344 2055L-349 2058L-368 2069L-371 2062L-374 2063L-380 2069L-387 2074L-413 2080L-415 2077L-413 2075L-407 2073L-413 2071L-423 2081L-441 2102L-446 2105L-474 2113L-479 2116L-481 2124L-451 2120L-439 2104L-422 2096L-416 2087L-399 2086L-380 2076L-378 2080L-380 2087L-395 2103L-401 2122L-412 2127L-420 2132L-428 2129L-439 2130L-444 2131L-447 2135L-468 2136L-461 2139L-473 2146L-476 2151L-466 2150L-455 2143L-445 2143L-447 2139L-442 2140L-428 2152L-432 2154L-441 2149L-442 2151L-434 2162L-439 2161L-443 2159L-446 2163L-454 2162L-458 2166L-479 2178L-484 2183L-487 2190L-482 2188L-482 2196L-492 2203L-488 2207L-475 2210L-467 2207L-439 2189L-430 2187L-420 2189L-411 2193L-404 2200L-402 2207L-416 2225L-414 2228L-411 2229L-412 2224L-406 2221L-408 2219L-399 2219L-394 2210L-385 2214L-385 2211L-387 2207L-384 2203L-388 2192L-384 2181L-378 2175L-362 2165L-353 2152L-347 2149L-338 2140L-331 2137L-325 2128L-313 2124L-305 2118L-297 2110L-292 2102L-309 2109L-318 2117L-336 2121L-358 2132L-363 2137L-372 2139L-378 2138L-384 2125L-394 2125L-395 2121L-392 2116L-374 2106L-360 2095L-349 2092L-333 2077L-313 2065L-296 2048L-289 2043L-280 2031L-275 2029L-264 2027L-261 2024L-259 2017L-270 2021L-282 2022L-287 2023L-300 2038L-344 2073L-352 2077L-356 2075L-355 2068L-347 2064L-341 2059L-333 2047L-314 2029L-311 2023L-306 2018L-271 1990L-253 1985L-248 2002L-235 2016L-237 2022L-259 2046L-256 2045L-250 2039L-247 2039L-241 2044L-239 2050L-237 2052L-233 2043L-235 2033L-233 2027L-227 2020L-217 2013L-203 2015L-197 2018L-191 2023L-206 2028L-180 2029L-168 2033L-169 2045L-166 2047L-152 2041L-133 2043L-148 2055L-154 2064L-155 2075L-146 2066L-135 2063L-135 2065L-152 2077L-162 2088L-174 2091L-176 2093L-171 2103L-167 2105L-150 2102L-143 2103L-141 2104L-143 2104L-143 2111L-137 2119L-138 2127L-140 2128L-153 2126L-174 2137L-181 2135L-187 2143L-184 2148L-224 2149L-231 2157L-232 2160L-212 2169L-212 2175ZM-191 1665L-191 1671L-193 1675L-197 1678L-199 1678L-198 1671L-191 1665ZM-512 1446L-518 1451L-524 1450L-525 1448L-524 1447L-510 1442L-502 1445L-512 1446ZM-191 1665L-191 1671L-193 1675L-197 1678L-199 1678L-198 1671L-191 1665ZM-512 1446L-518 1451L-524 1450L-525 1448L-524 1447L-510 1442L-502 1445L-512 1446Z";
+const R = BOARD.rules;
+const CARD_IDS = BOARD.colors.map(c => c.id);
+const CARD = Object.fromEntries(BOARD.colors.map(c => [c.id, c]));
+const CITY = Object.fromEntries(BOARD.cities.map(c => [c.id, c]));
+const ROUTE = Object.fromEntries(BOARD.routes.map(r => [r.id, r]));
+const TICKET = Object.fromEntries(BOARD.tickets.map(t => [t.id, t]));
+const SEAT_COLORS = [["Coral","#ff6b4a"],["Teal","#14b8a6"],["Violet","#8b5cf6"],["Gold","#facc15"],["Navy","#1e3a8a"]];
+const DOUBLE = {};
+BOARD.routes.forEach(r => { if (r.doubleGroup) (DOUBLE[r.doubleGroup] ||= []).push(r.id); });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cname = id => CITY[id]?.name ?? id;
+const store = { get(k){ try { return localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch {} } };
+
+/* ---------------- Rules engine (pure; runs on the host's device) ---------------- */
+function randInt(n){ const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0] % n; }
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--) { const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function newGame(hostId, hostName){
+  return { v:1, phase:"lobby", hostId, players:[{ id:hostId, name:hostName, color:0 }], log:[`${hostName} created the game.`], processed:{}, errors:{}, rev:0 };
+}
+function addLog(s, msg){ s.log.push(msg); if (s.log.length > 80) s.log.splice(0, s.log.length - 80); }
+function drawCard(s){
+  if (!s.deck.length && s.discard.length) { s.deck = shuffle(s.discard); s.discard = []; }
+  return s.deck.length ? s.deck.pop() : null;
+}
+function fillMarket(s){
+  for (let i = 0; i < R.marketSize; i++) if (s.market[i] == null) s.market[i] = drawCard(s);
+  let tries = 0;
+  while (s.market.filter(c => c === "wild").length >= R.maxFaceUpWilds && tries < 4 && s.deck.length + s.discard.length >= R.marketSize) {
+    s.market.forEach(c => { if (c) s.discard.push(c); });
+    s.market = []; for (let i = 0; i < R.marketSize; i++) s.market[i] = drawCard(s);
+    tries++;
+  }
+}
+function startGame(s){
+  s.deck = []; BOARD.colors.forEach(c => { for (let i = 0; i < c.count; i++) s.deck.push(c.id); });
+  shuffle(s.deck); s.discard = []; s.market = [];
+  s.ticketDeck = shuffle(BOARD.tickets.map(t => t.id));
+  for (const p of s.players) {
+    p.hand = {}; p.tickets = []; p.trainsLeft = R.trainsPerPlayer; p.routePts = 0; p.bonusPts = 0; p.score = 0;
+    for (let i = 0; i < R.handSize; i++) { const c = drawCard(s); p.hand[c] = (p.hand[c] || 0) + 1; }
+    p.pending = s.ticketDeck.splice(-R.ticketsOfferedStart);
+  }
+  fillMarket(s);
+  s.claims = {}; s.current = randInt(s.players.length); s.turnStep = "start"; s.finalTurnsLeft = null;
+  s.phase = "initialTickets";
+  addLog(s, `Game started. Everyone chooses starting tickets. ${s.players[s.current].name} will go first.`);
+}
+const handCount = p => Object.values(p.hand || {}).reduce((a, b) => a + b, 0);
+function siblingsOf(r){ return r.doubleGroup ? DOUBLE[r.doubleGroup].filter(id => id !== r.id) : []; }
+function claimBlock(s, pid, r){
+  if (s.claims[r.id]) return "That route is already taken.";
+  for (const sid of siblingsOf(r)) {
+    if (s.claims[sid] === pid) return "You already own the other track of this double route.";
+    if (s.claims[sid] && s.players.length < R.doubleRoutesMinPlayers) return `With fewer than ${R.doubleRoutesMinPlayers} players only one track of a double route can be used.`;
+  }
+  return null;
+}
+function trainCost(r){ return r.length + (r.kind === "mountain" ? (R.mountainExtraTrains || 0) : 0); }
+function canDrawAny(s){ return s.deck.length + s.discard.length > 0 || s.market.some(c => c); }
+function apply(s, pid, a){
+  const pi = s.players.findIndex(p => p.id === pid);
+  const fail = m => { throw new Error(m); };
+  if (a.type === "join") {
+    const name = String(a.name || "").trim().slice(0, 20) || "Player";
+    if (pi >= 0) return;
+    if (s.phase !== "lobby") fail("This game has already started.");
+    if (s.players.length >= R.playersMax) fail("This game is full.");
+    const used = new Set(s.players.map(p => p.color));
+    const color = [0,1,2,3,4].find(c => !used.has(c));
+    s.players.push({ id:pid, name, color }); addLog(s, `${name} joined.`); return;
+  }
+  if (pi < 0) fail("You are not in this game.");
+  const p = s.players[pi];
+  if (a.type === "leave") {
+    if (s.phase !== "lobby") fail("You can only leave before the game starts.");
+    if (pid === s.hostId) fail("The host can't leave the lobby.");
+    s.players.splice(pi, 1); addLog(s, `${p.name} left.`); return;
+  }
+  if (a.type === "endNow") {
+    if (pid !== s.hostId) fail("Only the host can end the game.");
+    if (s.phase === "ended") return;
+    if (s.phase === "lobby") { s.phase = "ended"; s.final = []; addLog(s, `${p.name} closed the game.`); return; }
+    addLog(s, `${p.name} ended the game early. Scoring it as it stands.`);
+    s.players.forEach(q => { q.pending = []; });
+    endGame(s); return;
+  }
+  if (a.type === "start") {
+    if (pid !== s.hostId) fail("Only the host can start the game.");
+    if (s.phase !== "lobby") fail("The game has already started.");
+    if (s.players.length < R.playersMin) fail(`You need at least ${R.playersMin} players.`);
+    startGame(s); return;
+  }
+  if (a.type === "keepTickets") {
+    if (!p.pending?.length) fail("You have no tickets to choose from.");
+    const keep = [...new Set(a.ids || [])].filter(id => p.pending.includes(id));
+    const min = s.phase === "initialTickets" ? R.ticketsKeepStart : R.ticketsKeep;
+    if (keep.length < Math.min(min, p.pending.length)) fail(`Keep at least ${min} ticket${min > 1 ? "s" : ""}.`);
+    const back = p.pending.filter(id => !keep.includes(id));
+    p.tickets.push(...keep); s.ticketDeck.unshift(...back); p.pending = [];
+    if (s.phase === "initialTickets") {
+      addLog(s, `${p.name} kept ${keep.length} tickets.`);
+      if (s.players.every(q => !q.pending?.length)) { s.phase = "playing"; s.turnStep = "start"; addLog(s, `${s.players[s.current].name}'s turn.`); }
+    } else { addLog(s, `${p.name} drew tickets and kept ${keep.length}.`); endTurn(s); }
+    return;
+  }
+  if (s.phase !== "playing" && s.phase !== "finalRound") fail("It isn't time to play yet.");
+  if (s.current !== pi) fail("It's not your turn.");
+  const give = c => { p.hand[c] = (p.hand[c] || 0) + 1; };
+  switch (a.type) {
+    case "drawDeck": {
+      if (s.turnStep === "choosingTickets") fail("Choose your tickets first.");
+      if (s.deck.length + s.discard.length === 0) fail("The draw pile is empty.");
+      give(drawCard(s));
+      if (s.turnStep === "start") { s.turnStep = "drewOne"; if (!canDrawAny(s)) { addLog(s, `${p.name} drew 1 card.`); endTurn(s); } }
+      else { addLog(s, `${p.name} drew 2 cards.`); endTurn(s); }
+      return;
+    }
+    case "drawMarket": {
+      if (s.turnStep === "choosingTickets") fail("Choose your tickets first.");
+      const i = a.index | 0, c = s.market[i];
+      if (c == null) fail("There's no card there.");
+      if (c === "wild" && s.turnStep === "drewOne") fail("A face-up wild can only be taken as your first card.");
+      give(c); s.market[i] = drawCard(s); fillMarket(s);
+      const label = CARD[c].label.toLowerCase();
+      if (c === "wild" || s.turnStep === "drewOne") { addLog(s, `${p.name} took a face-up ${label}${s.turnStep === "drewOne" ? " as a second card" : ""}.`); endTurn(s); }
+      else { s.turnStep = "drewOne"; s.firstPick = label; if (!s.market.some(x => x && x !== "wild") && s.deck.length + s.discard.length === 0) { addLog(s, `${p.name} took a face-up ${label}.`); endTurn(s); } }
+      return;
+    }
+    case "drawTickets": {
+      if (s.turnStep !== "start") fail("You can only draw tickets at the start of your turn.");
+      if (!s.ticketDeck.length) fail("There are no tickets left.");
+      p.pending = s.ticketDeck.splice(-R.ticketsOffered); s.turnStep = "choosingTickets"; return;
+    }
+    case "claim": {
+      if (s.turnStep !== "start") fail("You can only claim a route at the start of your turn.");
+      const r = ROUTE[a.routeId]; if (!r) fail("Unknown route.");
+      const block = claimBlock(s, pid, r); if (block) fail(block);
+      const cards = {}; let total = 0;
+      for (const [k, v] of Object.entries(a.cards || {})) { const n = v | 0; if (n < 0 || !CARD[k]) fail("Bad card choice."); if (n) { cards[k] = n; total += n; } }
+      if (total !== r.length) fail(`This route needs exactly ${r.length} cards.`);
+      const colors = Object.keys(cards).filter(k => k !== "wild");
+      if (colors.length > 1) fail("Pay with one color plus wilds.");
+      if (r.color !== "gray" && colors.length && colors[0] !== r.color) fail(`This route needs ${CARD[r.color].label.toLowerCase()} cards.`);
+      const needW = r.kind === "ferry" ? (r.wildsRequired || 0) : 0;
+      if ((cards.wild || 0) < needW) fail(`This ferry needs at least ${needW} wild card${needW > 1 ? "s" : ""}.`);
+      for (const [k, n] of Object.entries(cards)) if ((p.hand[k] || 0) < n) fail("You don't have those cards.");
+      const cost = trainCost(r); if (p.trainsLeft < cost) fail(`You need ${cost} trains and have ${p.trainsLeft}.`);
+      for (const [k, n] of Object.entries(cards)) { p.hand[k] -= n; if (!p.hand[k]) delete p.hand[k]; for (let i = 0; i < n; i++) s.discard.push(k); }
+      if (!s.market.every(Boolean)) fillMarket(s);
+      p.trainsLeft -= cost; s.claims[r.id] = pid;
+      const pts = R.routeScores[r.length] || 0, bonus = r.kind === "mountain" ? (R.mountainBonusPoints || 0) : 0;
+      p.routePts += pts; p.bonusPts += bonus; p.score = p.routePts + p.bonusPts;
+      addLog(s, `${p.name} claimed ${cname(r.a)} to ${cname(r.b)} (${r.length}) for ${pts + bonus} points${bonus ? ", including the mountain bonus" : ""}.`);
+      endTurn(s); return;
+    }
+    case "pass": {
+      if (s.turnStep !== "start") fail("Finish your turn first.");
+      if (canDrawAny(s) || s.ticketDeck.length) fail("You still have a move: draw cards or tickets.");
+      addLog(s, `${p.name} passed.`); endTurn(s); return;
+    }
+  }
+  fail("Unknown move.");
+}
+function endTurn(s){
+  const p = s.players[s.current];
+  delete s.firstPick;
+  if (s.finalTurnsLeft == null) {
+    if (p.trainsLeft <= R.endTrainsThreshold) { s.finalTurnsLeft = s.players.length; s.phase = "finalRound"; addLog(s, `${p.name} is down to ${p.trainsLeft} trains. Everyone gets one last turn.`); }
+  } else if (--s.finalTurnsLeft <= 0) { return endGame(s); }
+  s.current = (s.current + 1) % s.players.length; s.turnStep = "start";
+  addLog(s, `${s.players[s.current].name}'s turn.`);
+}
+function ownedRoutes(s, pid){ return Object.entries(s.claims || {}).filter(([, o]) => o === pid).map(([id]) => ROUTE[id]); }
+function connectedFn(routes){
+  const par = {}; const f = x => (par[x] ??= x) === x ? x : (par[x] = f(par[x]));
+  routes.forEach(r => { par[f(r.a)] = f(r.b); });
+  return (a, b) => f(a) === f(b);
+}
+function longestTrail(routes){
+  let best = 0; const adj = {};
+  routes.forEach((r, i) => { (adj[r.a] ||= []).push([r.b, i]); (adj[r.b] ||= []).push([r.a, i]); });
+  const used = new Array(routes.length).fill(false);
+  const dfs = (n, len) => { if (len > best) best = len; for (const [m, i] of adj[n] || []) if (!used[i]) { used[i] = true; dfs(m, len + routes[i].length); used[i] = false; } };
+  Object.keys(adj).forEach(n => dfs(n, 0));
+  return best;
+}
+function endGame(s){
+  s.phase = "ended"; s.final = [];
+  const lengths = s.players.map(p => longestTrail(ownedRoutes(s, p.id)));
+  const top = Math.max(...lengths);
+  s.players.forEach((p, i) => {
+    const conn = connectedFn(ownedRoutes(s, p.id));
+    let plus = 0, minus = 0; const done = [], missed = [];
+    p.tickets.forEach(id => { const t = TICKET[id]; if (conn(t.from, t.to)) { plus += t.points; done.push(id); } else { minus += t.points; missed.push(id); } });
+    const bonus = top > 0 && lengths[i] === top ? R.longestPathBonus : 0;
+    p.score = p.routePts + p.bonusPts + plus - minus + bonus;
+    s.final.push({ id:p.id, routePts:p.routePts, mountain:p.bonusPts, plus, minus, longest:lengths[i], bonus, total:p.score, done, missed });
+  });
+  const win = [...s.players].sort((a, b) => b.score - a.score)[0];
+  addLog(s, `Game over. ${win.name} wins with ${win.score} points.`);
+}
+
+/* ---------------- Game session ---------------- */
+let db = null, me = null, acct = null, code = null, gameRef = null, state = null, inbox = [];
+let tkSel = new Set(), tkKey = "";
+let local = null, confirmEnd = false, unsubs = [], lastSent = 0, sendError = null, selRoute = null, zoom = 1, hlTicket = null, busy = false, again = false, waitTimer = null, hostSlow = false;
+const isHost = () => state && me && state.hostId === me;
+const myIndex = () => state?.players?.findIndex(p => p.id === me) ?? -1;
+const myPlayer = () => state?.players?.[myIndex()];
+const pending = () => !local && lastSent && !(state?.processed?.[me] >= lastSent) && !(state?.errors?.[me]?.seq >= lastSent);
+
+/* ---------------- Peer-to-peer store ----------------
+   The host's browser keeps the game documents in memory (and saves the game to localStorage so a reload can resume).
+   Guests reach them over a WebRTC data channel made with PeerJS; the PeerJS broker only introduces the browsers.
+   The API is the small document store the game was written against: doc(path).get/set/onSnapshot, doc(path).collection(name).onSnapshot. */
+const PEER_PREFIX = "nfrails-v1-";
+const PEER_OPTS = (() => {
+  const q = new URLSearchParams(location.search), h = q.get("peerhost");
+  return h ? { host:h, port:+(q.get("peerport") || 9000), path:q.get("peerpath") || "/", secure:q.get("peersecure") === "1" } : {};
+})();
+const netErr = (code, message) => Object.assign(new Error(message || code), { code });
+const docSnap = d => ({ exists: d != null, data: () => (d == null ? undefined : structuredClone(d)) });
+const colSnap = list => ({ docs: list.map(x => ({ id:x.id, data: () => structuredClone(x.data) })) });
+const parentOf = p => p.slice(0, p.lastIndexOf("/"));
+let netDown = false;
+function setNetDown(v){ if (netDown !== v) { netDown = v; if (state) render(); } }
+
+class HostStore {
+  constructor(code){ this.code = code; this.docs = new Map(); this.local = new Set(); this.conns = new Set(); this.ready = false; }
+  open(){
+    return new Promise((resolve, reject) => {
+      const peer = this.peer = new Peer(PEER_PREFIX + this.code, PEER_OPTS);
+      peer.on("open", () => { this.ready = true; setNetDown(false); resolve(this); });
+      peer.on("error", e => { if (!this.ready) { peer.destroy(); reject(netErr(e.type, e.message)); } else console.warn("peer", e.type, e.message); });
+      peer.on("disconnected", () => { if (!peer.destroyed) setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000); });
+      peer.on("connection", c => this.accept(c));
+    });
+  }
+  close(){ this.peer?.destroy(); this.local.clear(); }
+  accept(conn){
+    conn.subs = new Set();
+    conn.on("open", () => this.conns.add(conn));
+    conn.on("close", () => this.conns.delete(conn));
+    conn.on("error", () => this.conns.delete(conn));
+    conn.on("data", m => {
+      if (!m || typeof m !== "object" || typeof m.path !== "string" || !/^games\/[A-Z2-9]{5}(\/inbox\/[^/]{1,200})?$/.test(m.path)) return;
+      const reply = (data, err) => m.id != null && conn.send({ t:"res", id:m.id, data, err });
+      if (m.t === "get") reply(this.docs.get(m.path) ?? null);
+      else if (m.t === "set") {
+        // Guests may only write their own inbox document.
+        if (!m.path.startsWith(`games/${this.code}/inbox/`)) return reply(null, "permission_denied");
+        this.write(m.path, m.data); reply(true);
+      }
+      else if (m.t === "sub") { conn.subs.add(m.kind + " " + m.path); conn.send(this.snapMsg(m.path, m.kind)); }
+    });
+  }
+  list(col){ return [...this.docs].filter(([p]) => parentOf(p) === col).map(([p, data]) => ({ id:p.slice(col.length + 1), data })); }
+  snapMsg(path, kind){ return { t:"snap", path, kind, data: kind === "doc" ? (this.docs.get(path) ?? null) : this.list(path) }; }
+  write(path, data){
+    this.docs.set(path, structuredClone(data));
+    if (path === `games/${this.code}`) store.set("nfr-host-" + this.code, JSON.stringify(data));
+    const targets = [["doc", path], ["col", parentOf(path)]];
+    for (const [kind, p] of targets) {
+      const key = kind + " " + p, msg = this.snapMsg(p, kind);
+      this.local.forEach(l => { if (l.key === key) l.fn(kind === "doc" ? docSnap(msg.data) : colSnap(msg.data)); });
+      this.conns.forEach(c => { if (c.subs.has(key) && c.open) c.send(msg); });
+    }
+  }
+  async get(path){ return docSnap(this.docs.get(path) ?? null); }
+  async set(path, data){ this.write(path, data); }
+  sub(path, kind, fn){
+    const l = { key: kind + " " + path, fn }; this.local.add(l);
+    const msg = this.snapMsg(path, kind); queueMicrotask(() => fn(kind === "doc" ? docSnap(msg.data) : colSnap(msg.data)));
+    return () => this.local.delete(l);
+  }
+}
+
+class GuestStore {
+  constructor(code){ this.code = code; this.n = 0; this.waiting = new Map(); this.subs = new Map(); this.lastSets = new Map(); this.closed = false; }
+  open(){
+    return new Promise((resolve, reject) => {
+      const peer = this.peer = new Peer(PEER_OPTS);
+      let first = true;
+      const fail = e => { if (first) { first = false; this.close(); reject(e); } };
+      const timer = setTimeout(() => fail(netErr("timeout", "Couldn't reach the host.")), 20000);
+      peer.on("open", () => this.connect(() => { if (first) { first = false; clearTimeout(timer); resolve(this); } }));
+      peer.on("error", e => {
+        if (e.type === "peer-unavailable") { if (first) { clearTimeout(timer); fail(netErr("not_found", "No game found.")); } else this.retry(); }
+        else if (first && e.type !== "network") { clearTimeout(timer); fail(netErr(e.type, e.message)); }
+        else console.warn("peer", e.type, e.message);
+      });
+      peer.on("disconnected", () => { if (!peer.destroyed) setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000); });
+    });
+  }
+  connect(onOpen){
+    if (this.closed) return;
+    const conn = this.conn = this.peer.connect(PEER_PREFIX + this.code, { reliable:true, serialization:"json" });
+    conn.on("open", () => {
+      setNetDown(false);
+      this.subs.forEach(s => conn.send({ t:"sub", path:s.path, kind:s.kind }));
+      // Re-send our latest move in case the host reloaded before handling it; the host ignores repeats by sequence number.
+      this.lastSets.forEach((data, path) => conn.send({ t:"set", path, data }));
+      onOpen?.();
+    });
+    conn.on("data", m => {
+      if (m?.t === "res") { const w = this.waiting.get(m.id); if (w) { this.waiting.delete(m.id); m.err ? w.reject(netErr(m.err)) : w.resolve(m.data); } }
+      else if (m?.t === "snap") { const s = this.subs.get(m.kind + " " + m.path); s?.fns.forEach(fn => fn(m.kind === "doc" ? docSnap(m.data) : colSnap(m.data))); }
+    });
+    const down = () => {
+      if (this.conn !== conn || this.closed) return;
+      this.conn = null; setNetDown(true);
+      this.waiting.forEach(w => w.reject(netErr("offline"))); this.waiting.clear();
+      this.retry();
+    };
+    conn.on("close", down); conn.on("error", down);
+  }
+  retry(){ if (this.closed || this.retrying) return; this.retrying = setTimeout(() => { this.retrying = null; if (!this.conn?.open) this.connect(); }, 3000); }
+  close(){ this.closed = true; this.peer?.destroy(); }
+  req(msg){
+    if (!this.conn?.open) return Promise.reject(netErr("offline"));
+    const id = ++this.n;
+    return new Promise((resolve, reject) => {
+      this.waiting.set(id, { resolve, reject }); this.conn.send({ ...msg, id });
+      setTimeout(() => { if (this.waiting.delete(id)) reject(netErr("offline")); }, 15000);
+    });
+  }
+  async get(path){ return docSnap(await this.req({ t:"get", path })); }
+  async set(path, data){ this.lastSets.set(path, data); await this.req({ t:"set", path, data }); }
+  sub(path, kind, fn){
+    const key = kind + " " + path;
+    let s = this.subs.get(key); if (!s) { s = { path, kind, fns:new Set() }; this.subs.set(key, s); if (this.conn?.open) this.conn.send({ t:"sub", path, kind }); }
+    s.fns.add(fn);
+    return () => s.fns.delete(fn);
+  }
+}
+
+let net = null;
+function closeNet(){ net?.close(); net = null; db = null; netDown = false; }
+function useNet(s){
+  net = s;
+  db = { doc: path => ({
+    get: () => s.get(path),
+    set: data => s.set(path, data),
+    onSnapshot: (fn, err) => s.sub(path, "doc", fn, err),
+    collection: name => ({ onSnapshot: (fn, err) => s.sub(path + "/" + name, "col", fn, err) }),
+  }) };
+}
+async function openHost(c, saved){
+  // A reloaded host can briefly find its old connection still holding the code, so retry for up to a minute.
+  for (let i = 0; ; i++) {
+    const h = new HostStore(c);
+    try { await h.open(); if (saved) h.docs.set("games/" + c, saved); useNet(h); return h; }
+    catch (e) { if (e.code !== "unavailable-id" || !saved || i >= 12) throw e; await new Promise(r => setTimeout(r, 5000)); }
+  }
+}
+async function openGuest(c){ const gs = new GuestStore(c); await gs.open(); useNet(gs); return gs; }
+
+function safeId(x){ return String(x).replace(/[^A-Za-z0-9_\-.~:@+]/g, "_").slice(0, 120); }
+function newId(){ return Date.now().toString(36) + randInt(1e9).toString(36); }
+async function boot(){
+  closeNet();
+  // This browser gets a lasting id; each tab adds its own, so two tabs are two seats.
+  acct = store.get("nfr-acct"); if (!acct) { acct = newId(); store.set("nfr-acct", acct); }
+  let tab = null; try { tab = sessionStorage.getItem("nfr-tab"); } catch {}
+  if (!tab) { tab = newId(); try { sessionStorage.setItem("nfr-tab", tab); } catch {} }
+  me = acct + "~" + tab;
+  const hash = location.hash.replace("#", "").toUpperCase();
+  if (/^[A-Z2-9]{5}$/.test(hash)) document.getElementById("joinCode").value = hash;
+  showHome(typeof Peer === "undefined" ? "Online play couldn't load. You can still play on one device below." : "");
+  const last = store.get("nfr-last"), role = store.get("nfr-role"), box = document.getElementById("resumeBox");
+  box.hidden = true;
+  if (!last) return;
+  if (role === "host") {
+    let s = null; try { s = JSON.parse(store.get("nfr-host-" + last)); } catch {}
+    const mine = s?.players?.filter(p => p.id === me || p.id.startsWith(acct + "~")) || [];
+    if (!s || !mine.length || s.phase === "ended") return;
+    box.hidden = false;
+    box.innerHTML = `<div class="stack"><div><h2>Game in progress</h2><div class="muted small">You're hosting game <b>${esc(last)}</b> · ${s.players.map(p => esc(p.name)).join(", ")}. The others are waiting for you to reopen it.</div></div><div class="row"><button class="primary" id="resumeHost">Return to the game</button></div><div id="resumeMsg" class="small muted"></div></div>`;
+    document.getElementById("resumeHost").onclick = async () => {
+      const b = document.getElementById("resumeHost"); b.disabled = true; document.getElementById("resumeMsg").textContent = "Reconnecting… this can take up to a minute after a reload.";
+      try { me = (mine.find(p => p.id === me) || mine.find(p => p.id === s.hostId) || mine[0]).id; try { sessionStorage.setItem("nfr-tab", me.split("~")[1] || ""); } catch {} await openHost(last, s); enter(last); }
+      catch (e) { b.disabled = false; document.getElementById("resumeMsg").textContent = netMsg(e); }
+    };
+  } else if (role === "guest") {
+    box.hidden = false;
+    box.innerHTML = `<div class="stack"><div><h2>Game in progress</h2><div class="muted small">You were playing in game <b>${esc(last)}</b>.</div></div><div class="row"><button class="primary" id="resumeGuest">Rejoin game ${esc(last)}</button></div><div id="resumeMsg" class="small muted"></div></div>`;
+    document.getElementById("resumeGuest").onclick = async () => {
+      const b = document.getElementById("resumeGuest"); b.disabled = true; document.getElementById("resumeMsg").textContent = "Connecting to the host…";
+      try {
+        await openGuest(last);
+        const snap = await db.doc("games/" + last).get(); const s = snap.exists ? snap.data() : null;
+        const mine = s?.players?.filter(p => p.id === me || p.id.startsWith(acct + "~")) || [];
+        if (!mine.length) { closeNet(); b.disabled = false; document.getElementById("resumeMsg").textContent = "You're not a player in that game any more."; return; }
+        me = (mine.find(p => p.id === me) || mine[0]).id; try { sessionStorage.setItem("nfr-tab", me.split("~")[1] || ""); } catch {}
+        enter(last);
+      } catch (e) { closeNet(); b.disabled = false; document.getElementById("resumeMsg").textContent = netMsg(e); }
+    };
+  }
+}
+function showHome(msg){
+  document.getElementById("boot").hidden = true;
+  document.getElementById("home").hidden = false;
+  document.getElementById("game").hidden = true;
+  document.getElementById("homeMsg").innerHTML = msg ? `<div class="notice">${esc(msg)}</div>` : "";
+  const n = store.get("nfr-name") || ""; ["hostName","joinName"].forEach(id => { const el = document.getElementById(id); if (!el.value) el.value = n; });
+}
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function busyBtn(form, on){ const b = form.querySelector("button[type=submit]"); if (b) { b.disabled = on; if (on) b.dataset.label = b.textContent; b.textContent = on ? "Connecting…" : (b.dataset.label || b.textContent); } }
+document.getElementById("createForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (typeof Peer === "undefined") return;
+  const form = e.currentTarget, name = document.getElementById("hostName").value.trim(); if (!name) return; store.set("nfr-name", name);
+  busyBtn(form, true);
+  try {
+    let c, err;
+    for (let i = 0; i < 6; i++) {
+      c = Array.from({length:5}, () => CODE_CHARS[randInt(CODE_CHARS.length)]).join("");
+      try { await openHost(c, null); err = null; break; } catch (x) { err = x; if (x.code !== "unavailable-id") break; }
+    }
+    if (err) throw err;
+    await db.doc("games/" + c).set(newGame(me, name));
+    store.set("nfr-role", "host"); enter(c);
+  } catch (err) { closeNet(); showHome(netMsg(err)); }
+  busyBtn(form, false);
+});
+document.getElementById("joinForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (typeof Peer === "undefined") return;
+  const form = e.currentTarget, c = document.getElementById("joinCode").value.trim().toUpperCase(), name = document.getElementById("joinName").value.trim();
+  if (!name || !c) return; store.set("nfr-name", name);
+  if (!/^[A-Z2-9]{5}$/.test(c)) return showHome("Game codes are five letters and numbers. Check the code with your host.");
+  busyBtn(form, true);
+  try {
+    await openGuest(c);
+    const snap = await db.doc("games/" + c).get();
+    if (!snap.exists) { closeNet(); busyBtn(form, false); return showHome(`No game found with code ${c}. Check the code with your host.`); }
+    const s = snap.data();
+    if (!s.players.some(p => p.id === me)) {
+      if (s.phase !== "lobby") { closeNet(); busyBtn(form, false); return showHome("That game has already started."); }
+      if (s.players.length >= R.playersMax) { closeNet(); busyBtn(form, false); return showHome("That game is full."); }
+    }
+    code = c; await send({ type:"join", name }); if (sendError) { closeNet(); busyBtn(form, false); return showHome(sendError); }
+    store.set("nfr-role", "guest"); enter(c);
+  } catch (err) { closeNet(); showHome(err.code === "not_found" ? `No game found with code ${c}. Check the code, and make sure the host still has the game open.` : netMsg(err)); }
+  busyBtn(form, false);
+});
+document.getElementById("localForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const names = document.getElementById("localNames").value.split(",").map(x => x.trim().slice(0, 20)).filter(Boolean);
+  if (names.length < R.playersMin || names.length > R.playersMax) { document.getElementById("localErr").textContent = `Enter ${R.playersMin} to ${R.playersMax} names, separated by commas.`; return; }
+  startLocal(names, true, false);
+});
+document.getElementById("quickTest").addEventListener("click", () => {
+  const pool = shuffle(["Ada","Bram","Cora","Dov","Esme","Finn","Gus","Hana","Ivy","Jude"]);
+  startLocal(pool.slice(0, 3), false, true);
+});
+function netMsg(err){
+  console.warn("network", err);
+  if (err?.code === "offline") return "Not connected to the host right now, so that didn't go through. It reconnects by itself; try again in a moment.";
+  if (err?.code === "unavailable-id") return "That game is still open in another tab or browser. Close it there, or wait a minute and try again.";
+  if (err?.code === "browser-incompatible") return "This browser can't make direct connections. Try a current Chrome, Firefox, Safari or Edge.";
+  if (err?.code === "network" || err?.code === "server-error" || err?.code === "socket-error" || err?.code === "socket-closed") return "Couldn't reach the connection service. Check your internet connection and try again.";
+  if (err?.code === "timeout") return "Couldn't reach the host. Make sure they have the game open, then try again.";
+  return `Something went wrong (${err?.code || "error"}). Try again.`;
+}
+function writeMsg(err){ return netMsg(err); }
+
+function enter(c){
+  code = c; store.set("nfr-last", c); try { history.replaceState(null, "", "#" + c); } catch { location.hash = c; }
+  unsubs.forEach(u => u()); unsubs = [];
+  gameRef = db.doc("games/" + c);
+  document.getElementById("home").hidden = true;
+  const g = document.getElementById("game"); g.hidden = false; g.innerHTML = `<div class="muted">Connecting to game ${esc(c)}…</div>`;
+  const t = setTimeout(() => { if (!state) g.innerHTML = `<div class="notice">Can't reach the game yet. It will appear when the connection returns.</div>`; }, 10000);
+  unsubs.push(gameRef.onSnapshot(snap => {
+    clearTimeout(t);
+    if (!snap.exists) { state = null; return showHome(`Game ${c} no longer exists.`); }
+    state = snap.data(); render(); hostTick();
+  }, () => { g.innerHTML = `<div class="notice">Lost the connection to the game. Reload the page to reconnect.</div>`; }));
+  unsubs.push(gameRef.collection("inbox").onSnapshot(snap => { inbox = snap.docs.map(d => ({ id:d.id, ...d.data() })); hostTick(); }, () => {}));
+}
+function actingId(s){
+  if (s.phase === "initialTickets") return (s.players.find(p => p.pending?.length) || s.players[0]).id;
+  if (s.phase === "ended") return local?.viewer || s.players[0].id;
+  return s.players[s.current].id;
+}
+function startLocal(names, handoff, test){
+  const ids = names.map((n, i) => "local" + i);
+  const s = newGame(ids[0], names[0]);
+  names.slice(1).forEach((n, i) => apply(s, ids[i + 1], { type:"join", name:n }));
+  apply(s, ids[0], { type:"start" });
+  if (test) s.players.forEach(p => apply(s, p.id, { type:"keepTickets", ids:p.pending }));
+  local = { handoff, test, shown:null, viewer:null };
+  unsubs.forEach(u => u()); unsubs = [];
+  state = s; code = "LOCAL"; me = actingId(s); selRoute = null; sendError = null; confirmEnd = false;
+  document.getElementById("home").hidden = true; document.getElementById("boot").hidden = true;
+  document.getElementById("game").hidden = false; render();
+}
+async function send(action, asId){
+  if (local) {
+    const s = structuredClone(state);
+    try { apply(s, asId || me, action); state = s; sendError = null; } catch (e) { sendError = e.message; }
+    const prev = me; me = actingId(state); if (state.phase === "ended") local.viewer = local.viewer || prev;
+    render(); return;
+  }
+  const seq = Math.max(Date.now(), lastSent + 1, (state?.processed?.[me] || 0) + 1);
+  lastSent = seq; sendError = null; render();
+  try { await db.doc(`games/${code}/inbox/${me}`).set({ seq, action }); }
+  catch (err) { lastSent = 0; sendError = writeMsg(err); render(); return; }
+  clearTimeout(waitTimer); hostSlow = false;
+  waitTimer = setTimeout(() => { if (pending()) { hostSlow = true; render(); } }, 8000);
+}
+/* The host's device applies every queued move in order and writes the new state. */
+async function hostTick(){
+  if (local || !isHost() || !state) return;
+  if (busy) { again = true; return; }
+  busy = true;
+  try {
+    do {
+      again = false;
+      const s = structuredClone(state); let changed = false;
+      for (const d of [...inbox].sort((a, b) => a.seq - b.seq)) {
+        if (!(d.seq > (s.processed[d.id] || 0))) continue;
+        s.processed[d.id] = d.seq; changed = true;
+        try { apply(s, d.id, d.action || {}); delete s.errors[d.id]; }
+        catch (e) { s.errors[d.id] = { seq:d.seq, msg:e.message }; }
+        if (s.phase === "ended" && d.action?.type !== "join") { /* keep processing nothing else meaningful */ }
+      }
+      if (changed) { s.rev = (s.rev || 0) + 1; state = s; render(); await gameRef.set(s); }
+    } while (again);
+  } catch (e) { console.warn(e); }
+  busy = false;
+}
+
+/* ---------------- Board drawing (everything from board data) ---------------- */
+const pt = (x, y) => ({ x, y });
+const LABEL_POS = {"st-anthony":"r","port-au-choix":"l","roddickton":"r","cow-head":"l","jacksons-arm":"al","baie-verte":"ar","rocky-harbour":"l","springdale":"al","deer-lake":"br","corner-brook":"l","twillingate":"al","fogo-island":"ar","lewisporte":"r","buchans":"b","grand-falls":"br","gander":"ar","eastport":"ar","bonavista":"r","stephenville":"al","nowhere":"al","clarenville":"bl","conne-river":"r","goobies":"al","bay-roberts":"a","st-johns":"r","port-aux-basques":"br","burgeo":"b","francois":"al","harbour-breton":"bl","marystown":"br","argentia":[-12,-30,"end"],"op":"l","mount-pearl":"r","saint-marys":"bl","fortune":"br","saint-pierre":"l","ferryland":"r","trepassey":"b"};
+const CAR_FILL = Object.fromEntries(BOARD.colors.map(c => [c.id, c.hex])); CAR_FILL.gray = "#b4b8b9"; CAR_FILL.white = "#f7f7f2";
+const CURVES = {}, CAR_LEN = 50;
+function curve(r){
+  if (CURVES[r.id]) return CURVES[r.id];
+  const A = r.path ? pt(...r.path[0]) : pt(CITY[r.a].x, CITY[r.a].y);
+  const B = r.path ? pt(...r.path[r.path.length - 1]) : pt(CITY[r.b].x, CITY[r.b].y);
+  const M = r.mid ? pt(...r.mid) : pt((A.x + B.x) / 2, (A.y + B.y) / 2);
+  const C = pt(2 * M.x - (A.x + B.x) / 2, 2 * M.y - (A.y + B.y) / 2);
+  const grp = r.doubleGroup ? DOUBLE[r.doubleGroup] : null;
+  const off = grp ? (grp.indexOf(r.id) === 0 ? -9.5 : 9.5) : 0;
+  const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L * off, ny = dx / L * off;
+  const a = pt(A.x + nx, A.y + ny), b = pt(B.x + nx, B.y + ny), c = pt(C.x + nx, C.y + ny);
+  const N = 48, P = [], cum = [0];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, u = 1 - t;
+    P.push(pt(u * u * a.x + 2 * u * t * c.x + t * t * b.x, u * u * a.y + 2 * u * t * c.y + t * t * b.y));
+    if (i) cum.push(cum[i - 1] + Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y));
+  }
+  return (CURVES[r.id] = { P, cum, total: cum[N] });
+}
+function along(cv, s){
+  let i = 1; while (i < cv.cum.length - 1 && cv.cum[i] < s) i++;
+  const f = (s - cv.cum[i - 1]) / ((cv.cum[i] - cv.cum[i - 1]) || 1), p = cv.P[i - 1], q = cv.P[i];
+  return { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f, ang: Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI };
+}
+function carsOf(r){
+  // Every car slot is the same size; spare length becomes evenly spread gaps.
+  // Equal gaps everywhere: town edge, car, gap, car, ..., car, town edge.
+  const cv = curve(r), trimA = 12, trimB = CITY[r.b].offMap ? 0 : 12, n = r.length, len = CAR_LEN;
+  const gap = (cv.total - trimA - trimB - n * len) / (n + 1);
+  return Array.from({ length: n }, (_, i) => ({ ...along(cv, trimA + gap + i * (len + gap) + len / 2), len }));
+}
+const f1 = v => v.toFixed(1);
+function boardSVG(){
+  const W = BOARD.canvas.width, H = BOARD.canvas.height;
+  let routes = "", rings = "", cities = "", tags = "";
+  for (const r of BOARD.routes) {
+    const owner = state?.claims?.[r.id];
+    const pl = owner ? state.players.find(p => p.id === owner) : null;
+    const fill = pl ? SEAT_COLORS[pl.color][1] : CAR_FILL[r.color];
+    const cars = carsOf(r), cv = curve(r);
+    const mid = cars[Math.floor((cars.length - 1) / 2)];
+    let g = "";
+    const edge = r.color === "black" ? "#fff" : "#3a3a3a";
+    cars.forEach((c, i) => {
+      g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})"><rect class="car" x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${fill}" stroke="${pl ? "#111" : edge}" stroke-width="${pl ? 2.4 : 1.4}"/>`;
+      if (!pl && r.kind === "ferry" && i < (r.wildsRequired || 0)) g += `<circle r="4.6" fill="url(#wildG)" stroke="#222" stroke-width="1.2"/>`;
+      if (!pl && r.kind === "mountain" && c === mid) { const hx = c.len / 2 - 1.6; g += `<path d="M${f1(-hx)} -5.4L${f1(hx)} 5.4M${f1(-hx)} 5.4L${f1(hx)} -5.4" stroke="${edge}" stroke-width="1.8" stroke-linecap="round"/>`; }
+      if (pl) g += `<circle r="3.4" fill="#fff" stroke="#111" stroke-width="1"/>`;
+      g += `</g>`;
+    });
+    const d = "M" + cv.P.map(p => `${f1(p.x)} ${f1(p.y)}`).join("L");
+    const desc = `${cname(r.a)} – ${cname(r.b)}: ${r.length} ${r.color === "gray" ? "any color" : CARD[r.color].label.toLowerCase()}${r.kind === "mountain" ? ", mountain" : r.kind === "ferry" ? `, ferry (${r.wildsRequired} wild)` : ""}${pl ? `, taken by ${pl.name}` : ""}`;
+    routes += `<g class="rt${selRoute === r.id ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
+  }
+  const mp = myPlayer(); const ticketCities = new Set();
+  (mp?.tickets || []).concat(mp?.pending || []).forEach(id => { const t = TICKET[id]; if (t) { ticketCities.add(t.from); ticketCities.add(t.to); } });
+  const hi = hlTicket ? new Set([TICKET[hlTicket].from, TICKET[hlTicket].to]) : null;
+  const sel = selRoute ? ROUTE[selRoute] : null;
+  for (const c of BOARD.cities) {
+    const marks = c.marks || [[c.x, c.y]];
+    for (const [x, y] of marks) {
+      if (ticketCities.has(c.id) && !c.offMap) rings += `<circle cx="${x}" cy="${y}" r="${hi?.has(c.id) ? 27 : 20}" fill="none" stroke="${hi?.has(c.id) ? "#e8431a" : "#1d6fd1"}" stroke-width="${hi?.has(c.id) ? 6 : 4}"/>`;
+      if (c.offMap) continue;
+      const on = sel && (sel.a === c.id || sel.b === c.id);
+      cities += `<circle cx="${x}" cy="${y}" r="${on ? 12 : 10}" fill="${on ? "#e8431a" : "#2b2b2b"}" stroke="#fff" stroke-width="3"/>`;
+      const pos = LABEL_POS[c.id] || "r", ps = Array.isArray(pos) ? "" : pos;
+      let dx = ps.includes("r") ? 16 : ps.includes("l") ? -16 : 0, dy = ps.startsWith("a") ? -18 : ps.startsWith("b") ? 34 : 9;
+      let anchor = ps.includes("r") ? "start" : ps.includes("l") ? "end" : "middle";
+      if (Array.isArray(pos)) [dx, dy, anchor] = pos;
+      cities += `<text class="city" x="${x + dx}" y="${y + dy}" text-anchor="${anchor}">${esc(c.name)}</text>`;
+    }
+  }
+  for (const r of BOARD.routes) {
+    const c = CITY[r.b]; if (!c?.offMap) continue;
+    const P = curve(r).P, e = P[P.length - 1], q = P[P.length - 4], L = Math.hypot(e.x - q.x, e.y - q.y) || 1;
+    const x = e.x + (e.x - q.x) / L * 40, y = e.y + (e.y - q.y) / L * 40;
+    const ring = ticketCities.has(c.id) ? `<rect x="-82" y="-27" width="164" height="54" rx="12" fill="none" stroke="${hi?.has(c.id) ? "#e8431a" : "#1d6fd1"}" stroke-width="${hi?.has(c.id) ? 6 : 4}"/>` : "";
+    tags += `<g transform="translate(${f1(x)} ${f1(y)})">${ring}<rect x="-74" y="-20" width="148" height="40" rx="8" fill="#22313a" stroke="#fff" stroke-width="2"/><text class="tag" y="8" text-anchor="middle">${esc(c.name)}</text></g>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:${zoom * 100}%" role="img" aria-label="Map of Newfoundland with rail routes">
+  <defs><linearGradient id="wildG" x1="0" x2="1"><stop offset="0" stop-color="#d8302e"/><stop offset=".33" stop-color="#e8d84a"/><stop offset=".66" stop-color="#2a86e0"/><stop offset="1" stop-color="#d98ad8"/></linearGradient></defs>
+  <rect width="${W}" height="${H}" fill="#bcd3df"/><path d="${COAST}" fill="#e2e8cc" stroke="#7f9a80" stroke-width="2.5" stroke-linejoin="round"/>
+  ${rings}${routes}${cities}${tags}</svg>`;
+}
+
+/* ---------------- Payment options for a route ---------------- */
+function payOptions(r, hand){
+  const L = r.length, needW = r.kind === "ferry" ? (r.wildsRequired || 0) : 0, w = hand.wild || 0, out = [];
+  const colors = r.color === "gray" ? CARD_IDS.filter(c => c !== "wild") : [r.color];
+  for (const c of colors) {
+    const have = hand[c] || 0; const use = Math.min(have, L - needW); if (use <= 0) continue;
+    const wilds = L - use; if (wilds <= w) out.push({ [c]:use, ...(wilds ? { wild:wilds } : {}) });
+  }
+  if (w >= L && L >= needW) out.push({ wild:L });
+  return out;
+}
+const cardChip = (c, n) => `<span class="card c-${c}" style="background:${CARD[c].hex};width:auto;height:auto;flex-direction:row;gap:4px;display:inline-flex;padding:2px 6px">${n}× ${esc(CARD[c].label)}</span>`;
+
+/* ---------------- Rendering ---------------- */
+function statusLine(){
+  const s = state, cur = s.players?.[s.current], mine = s.current === myIndex();
+  if (s.phase === "lobby") return ["Waiting for players to join", false];
+  if (s.phase === "initialTickets") return [myPlayer()?.pending?.length ? `Choose your starting tickets: keep at least ${R.ticketsKeepStart}` : "Waiting for others to choose tickets", !!myPlayer()?.pending?.length];
+  if (s.phase === "ended") return ["Game over", false];
+  if (!mine) return [`${cur.name}'s turn`, false];
+  if (s.turnStep === "drewOne") return ["Your turn: draw one more card (not a face-up wild)", true];
+  if (s.turnStep === "choosingTickets") return [`Your turn: keep at least ${R.ticketsKeep} ticket`, true];
+  return ["Your turn: draw cards, claim a route, or draw tickets", true];
+}
+function render(){
+  if (!state) return;
+  const g = document.getElementById("game"); const s = state; const mp = myPlayer(); const mi = myIndex();
+  const scrollBoard = g.querySelector(".boardwrap"); const keep = scrollBoard ? [scrollBoard.scrollLeft, scrollBoard.scrollTop] : null;
+  const logEl = g.querySelector(".log"); const logAtBottom = !logEl || logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
+  if (s.phase === "lobby") { g.innerHTML = lobbyHTML(); wire(); return; }
+  if (local?.handoff && s.phase !== "ended" && local.shown !== me) {
+    g.innerHTML = `<div class="panel" style="grid-column:1/-1;max-width:520px;margin:40px auto;text-align:center;gap:16px"><div class="small muted">Pass and play</div><h1>Pass the device to ${esc(mp.name)}</h1><p class="muted" style="margin:0">Everyone else, look away. ${esc(mp.name)}, tap below when you're ready to see your hand.</p><button class="primary" id="showHand">I'm ${esc(mp.name)}, show my hand</button><button id="homeBtn">Leave to menu</button></div>`;
+    wire(); return;
+  }
+  if (selRoute && s.claims?.[selRoute]) selRoute = null;
+  const [line, mine] = statusLine(); const wait = pending();
+  const myTurn = mi === s.current && (s.phase === "playing" || s.phase === "finalRound");
+  const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
+  const conn = mp ? connectedFn(ownedRoutes(s, me)) : null;
+  let html = `<div class="topbar"><div class="stack" style="gap:2px"><div class="small muted">Newfoundland Rails · ${local ? (local.test ? "quick test" : "pass and play") + (mp && s.phase !== "ended" ? ` · playing as <b>${esc(mp.name)}</b>` : "") : `game <b>${esc(code)}</b>`}</div><div class="status ${mine ? "mine" : ""}" aria-live="polite">${esc(line)}${wait ? ' <span class="muted small">sending…</span>' : ""}</div></div>
+    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<button id="homeBtn">Leave to menu</button></div></div>`;
+  if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><span class="muted">Only in quick test.</span></div>`;
+  if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
+  if (netDown && !local) html += `<div class="banner" role="status">Lost the connection to the host. Reconnecting…</div>`;
+  if (err) html += `<div class="banner err" role="alert">${esc(err)}</div>`;
+  if (hostSlow && wait) html += hostWaitHTML();
+  if (s.phase === "ended") html += resultsHTML();
+  html += `<div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">`;
+  // claim panel
+  if (selRoute && mp && s.phase !== "ended") {
+    const r = ROUTE[selRoute]; const owner = s.claims[r.id]; const block = owner ? null : claimBlock(s, me, r);
+    const opts = payOptions(r, mp.hand || {}); const cost = trainCost(r);
+    const pts = (R.routeScores[r.length] || 0) + (r.kind === "mountain" ? R.mountainBonusPoints || 0 : 0);
+    const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    let body = `<div class="small muted">Pay ${pl(r.length, r.color === "gray" ? "card" : CARD[r.color].label.toLowerCase() + " card")}${r.color === "gray" ? " of any one color" : ""}${r.kind === "ferry" ? `, including at least ${pl(r.wildsRequired, "wild")}` : ""}. Uses ${pl(cost, "train")}${r.kind === "mountain" ? " (mountain: 1 extra)" : ""}. Scores ${pl(pts, "point")}${r.kind === "mountain" ? ", including the 2-point mountain bonus" : ""}.</div>`;
+    if (owner) body += `<div>Taken by ${esc(s.players.find(p => p.id === owner)?.name)}.</div>`;
+    else if (block) body += `<div class="err">${esc(block)}</div>`;
+    else if (!myTurn) body += `<div class="muted">You can claim it on your turn.</div>`;
+    else if (s.turnStep !== "start") body += `<div class="muted">Finish your draw first.</div>`;
+    else if (mp.trainsLeft < cost) body += `<div class="err">You only have ${mp.trainsLeft} trains left.</div>`;
+    else if (!opts.length) body += `<div class="muted">You don't have the cards for this route yet.</div>`;
+    else body += `<div class="stack" style="gap:6px">${opts.map((o, i) => `<button class="primary payopt" data-i="${i}" ${wait ? "disabled" : ""}>Pay ${Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" + ")}</button>`).join("")}</div>`;
+    html += `<div class="panel claim"><div class="row" style="justify-content:space-between"><h2>${esc(cname(r.a))} – ${esc(cname(r.b))}</h2><button id="closeClaim" aria-label="Close">Close</button></div>${body}</div>`;
+    g._opts = opts;
+  }
+  // pending tickets
+  const pk = (mp?.pending || []).join(",");
+  if (pk !== tkKey) { tkKey = pk; tkSel = new Set(); }
+  if (mp?.pending?.length) {
+    const min = s.phase === "initialTickets" ? R.ticketsKeepStart : R.ticketsKeep;
+    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix">${mp.pending.map(id => { const t = TICKET[id]; return `<label class="tk" data-tk="${id}"><span><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${tkSel.has(id) ? " checked" : ""}> ${esc(cname(t.from))} – ${esc(cname(t.to))}</span><span class="pts">${t.points}</span></label>`; }).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
+  }
+  // market
+  if (s.phase !== "ended") {
+    const canDraw = myTurn && !wait && s.turnStep !== "choosingTickets";
+    html += `<div class="panel"><h3>Face-up cards</h3><div class="cards">${(s.market || []).map((c, i) => c ? `<button class="card c-${c}" style="background:${CARD[c].hex}" data-mk="${i}" ${canDraw && !(c === "wild" && s.turnStep === "drewOne") ? "" : "disabled"} aria-label="Take ${CARD[c].label}"><span class="lbl">${esc(CARD[c].label)}</span></button>` : `<div class="card empty">empty</div>`).join("")}</div>
+      <div class="drawbtns"><button id="drawDeck" ${canDraw && s.deck.length + s.discard.length ? "" : "disabled"}>Draw from pile <span class="muted small">(${s.deck.length + s.discard.length})</span></button><button id="drawTix" ${myTurn && !wait && s.turnStep === "start" && s.ticketDeck.length ? "" : "disabled"}>Draw tickets <span class="muted small">(${s.ticketDeck.length})</span></button></div>
+      ${myTurn && s.turnStep === "start" && !canDrawAny(s) && !s.ticketDeck.length ? `<button id="passBtn">Pass (nothing left to draw)</button>` : ""}</div>`;
+  }
+  // hand
+  if (mp?.hand) {
+    const hand = CARD_IDS.filter(c => mp.hand[c]);
+    html += `<div class="panel"><h3>Your hand · ${handCount(mp)} cards · ${mp.trainsLeft} trains</h3><div class="cards">${hand.length ? hand.map(c => `<div class="card c-${c}" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span><span class="n">${mp.hand[c]}</span></div>`).join("") : '<span class="muted small">No cards yet.</span>'}</div><div class="small muted">Tap a route on the map to claim it.</div></div>`;
+  }
+  // tickets
+  if (mp?.tickets?.length) {
+    html += `<div class="panel"><h3>Your tickets</h3><div class="tix">${mp.tickets.map(id => { const t = TICKET[id]; const ok = conn(t.from, t.to); return `<div class="tk ${ok ? "done" : ""}" data-tk="${id}" tabindex="0"><span>${esc(cname(t.from))} – ${esc(cname(t.to))} ${ok ? '<span class="ok">Connected</span>' : ""}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div></div>`;
+  }
+  // players
+  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score">${p.score}</span></div>`).join("")}</div>
+    ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
+  html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
+  g.innerHTML = html; wire();
+  const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
+  const le = g.querySelector(".log"); if (le && logAtBottom) le.scrollTop = le.scrollHeight;
+}
+function hostWaitHTML(){
+  const host = state.players.find(p => p.id === state.hostId);
+  return `<div class="banner">Waiting for ${esc(host?.name || "the host")}'s device to process moves. The host needs this game open.</div>`;
+}
+function lobbyHTML(){
+  const s = state, host = isHost(), inGame = myIndex() >= 0;
+  return `<div class="topbar"><div class="status">Lobby</div><button id="homeBtn">Leave to menu</button></div>
+  <div class="panel" style="grid-column:1/-1;max-width:720px">
+    <div class="small muted">Game code</div>
+    <div class="row"><span class="code" id="codeText">${esc(code)}</span><button id="copyCode">Copy code</button><button id="copyLink">Copy invite link</button></div>
+    <p class="small muted" style="margin:0">Send the other players the invite link, or this page's address and the code. Keep this page open while you play: your device runs the game.</p>
+    <h3>Players (${s.players.length} of ${R.playersMax})</h3>
+    <div class="players">${s.players.map(p => `<div class="pl"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}</div><span></span></div>`).join("")}</div>
+    ${!inGame ? (sendError ? `<div class="err">${esc(sendError)}</div>` : `<div class="muted">Joining…</div>`) : host ? `<div class="row"><button class="primary" id="startBtn" ${s.players.length < R.playersMin || pending() ? "disabled" : ""}>Start game</button><span class="small muted">${s.players.length < R.playersMin ? `Needs at least ${R.playersMin} players.` : ""}</span></div>` : `<div class="muted">Waiting for the host to start.</div><button id="leaveBtn">Leave this game</button>`}
+    ${s.errors?.[me]?.seq === lastSent && lastSent ? `<div class="err">${esc(s.errors[me].msg)}</div>` : ""}
+    ${hostSlow && pending() ? hostWaitHTML() : ""}
+  </div>`;
+}
+function resultsHTML(){
+  if (!state.final?.length) return `<div class="panel claim" style="grid-column:1/-1"><h2>Game closed</h2><button class="primary" id="newGameBtn">Back to menu</button></div>`;
+  const rows = [...state.final].sort((a, b) => b.total - a.total);
+  const name = id => esc(state.players.find(p => p.id === id)?.name);
+  return `<div class="panel claim" style="grid-column:1/-1"><h2>Final scores</h2><div class="tablewrap"><table><thead><tr><th>Player</th><th>Routes</th><th>Mountains</th><th>Tickets</th><th>Longest</th><th>Total</th></tr></thead><tbody>${rows.map(f => `<tr><td>${name(f.id)}</td><td>${f.routePts}</td><td>${f.mountain}</td><td>+${f.plus} / −${f.minus}</td><td>${f.longest}${f.bonus ? ` (+${f.bonus})` : ""}</td><td><b>${f.total}</b></td></tr>`).join("")}</tbody></table></div>
+  ${rows.map(f => `<div class="small"><b>${name(f.id)}</b>: ${f.done.map(id => `${esc(cname(TICKET[id].from))}–${esc(cname(TICKET[id].to))} ✓`).concat(f.missed.map(id => `${esc(cname(TICKET[id].from))}–${esc(cname(TICKET[id].to))} ✗`)).join(", ") || "no tickets"}</div>`).join("")}
+  <button class="primary" id="newGameBtn">Back to menu</button></div>`;
+}
+function wire(){
+  const g = document.getElementById("game"); const $ = id => document.getElementById(id);
+  $("showHand") && ($("showHand").onclick = () => { local.shown = me; render(); });
+  $("endBtn") && ($("endBtn").onclick = () => { confirmEnd = true; render(); });
+  $("endNo") && ($("endNo").onclick = () => { confirmEnd = false; render(); });
+  $("endYes") && ($("endYes").onclick = () => { confirmEnd = false; send({ type:"endNow" }, state.hostId); });
+  const cheat = fn => { const s = structuredClone(state); fn(s, s.players.find(p => p.id === me)); state = s; render(); };
+  $("tCards") && ($("tCards").onclick = () => cheat((s, p) => { for (let i = 0; i < 10; i++) { const c = CARD_IDS[randInt(CARD_IDS.length - 1)]; p.hand[c] = (p.hand[c] || 0) + 1; } }));
+  $("tWilds") && ($("tWilds").onclick = () => cheat((s, p) => { p.hand.wild = (p.hand.wild || 0) + 4; }));
+  $("tTrains") && ($("tTrains").onclick = () => cheat((s, p) => { p.trainsLeft = 3; }));
+  $("tTickets") && ($("tTickets").onclick = () => cheat((s, p) => { if (!p.pending?.length && s.ticketDeck.length) { p.pending = s.ticketDeck.splice(-R.ticketsOffered); if (s.turnStep === "start") s.turnStep = "choosingTickets"; } }));
+  $("homeBtn") && ($("homeBtn").onclick = () => { local = null; confirmEnd = false; unsubs.forEach(u => u()); unsubs = []; state = null; selRoute = null; try { history.replaceState(null, "", location.pathname + location.search); } catch {} boot(); });
+  $("newGameBtn") && ($("newGameBtn").onclick = () => $("homeBtn").click());
+  $("copyLink") && ($("copyLink").onclick = async () => { const u = location.origin + location.pathname + "#" + code; try { await navigator.clipboard.writeText(u); $("copyLink").textContent = "Link copied"; } catch { prompt("Copy this link", u); } });
+  $("copyCode") && ($("copyCode").onclick = async () => { try { await navigator.clipboard.writeText(code); $("copyCode").textContent = "Copied"; } catch { const r = document.createRange(); r.selectNodeContents($("codeText")); getSelection().removeAllRanges(); getSelection().addRange(r); } });
+  $("startBtn") && ($("startBtn").onclick = () => send({ type:"start" }));
+  $("leaveBtn") && ($("leaveBtn").onclick = () => send({ type:"leave" }));
+  $("drawDeck") && ($("drawDeck").onclick = () => send({ type:"drawDeck" }));
+  $("drawTix") && ($("drawTix").onclick = () => send({ type:"drawTickets" }));
+  $("passBtn") && ($("passBtn").onclick = () => send({ type:"pass" }));
+  $("keepBtn") && ($("keepBtn").onclick = () => send({ type:"keepTickets", ids:[...tkSel] }));
+  g.querySelectorAll(".keep").forEach(cb => cb.onchange = () => {
+    cb.checked ? tkSel.add(cb.value) : tkSel.delete(cb.value);
+    const kb = $("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
+  });
+  $("closeClaim") && ($("closeClaim").onclick = () => { selRoute = null; render(); });
+  $("zIn") && ($("zIn").onclick = () => setZoom(Math.min(3, zoom + .5)));
+  $("zOut") && ($("zOut").onclick = () => setZoom(Math.max(1, zoom - .5)));
+  wirePan();
+  g.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => send({ type:"drawMarket", index:+b.dataset.mk }));
+  g.querySelectorAll(".payopt").forEach(b => b.onclick = () => { const o = g._opts[+b.dataset.i]; const rid = selRoute; selRoute = null; send({ type:"claim", routeId:rid, cards:o }); });
+  wireRoutes();
+  g.querySelectorAll("[data-tk]").forEach(el => {
+    el.addEventListener("mouseenter", () => { hlTicket = el.dataset.tk; updateRings(); });
+    el.addEventListener("mouseleave", () => { hlTicket = null; updateRings(); });
+    el.addEventListener("focus", () => { hlTicket = el.dataset.tk; updateRings(); });
+    el.addEventListener("blur", () => { hlTicket = null; updateRings(); });
+  });
+}
+function wireRoutes(){ document.querySelectorAll("#game .rt:not(.own)[data-route]").forEach(el => el.addEventListener("click", () => { selRoute = el.dataset.route; render(); })); }
+function fitBoard(){
+  const box = document.querySelector(".boardbox"); if (!box) return;
+  const top = box.getBoundingClientRect().top + window.scrollY, avail = Math.max(320, window.innerHeight - top - 14);
+  box.style.maxWidth = (avail * 1876 / 1979) + "px";
+}
+function setZoom(z){
+  const bw = document.querySelector(".boardwrap"); if (!bw || z === zoom) return;
+  const cx = (bw.scrollLeft + bw.clientWidth / 2) / bw.scrollWidth, cy = (bw.scrollTop + bw.clientHeight / 2) / bw.scrollHeight;
+  zoom = z; render();
+  const nb = document.querySelector(".boardwrap"); if (!nb) return;
+  nb.scrollLeft = cx * nb.scrollWidth - nb.clientWidth / 2; nb.scrollTop = cy * nb.scrollHeight - nb.clientHeight / 2;
+}
+let panMoved = false;
+function wirePan(){
+  const bw = document.querySelector(".boardwrap"); if (!bw) return;
+  bw.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.button !== 0 || zoom === 1) return;
+    const x0 = e.clientX, y0 = e.clientY, l0 = bw.scrollLeft, t0 = bw.scrollTop; panMoved = false;
+    const move = ev => { const dx = ev.clientX - x0, dy = ev.clientY - y0; if (!panMoved && Math.hypot(dx, dy) < 5) return; panMoved = true; bw.classList.add("dragging"); bw.scrollLeft = l0 - dx; bw.scrollTop = t0 - dy; };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); bw.classList.remove("dragging"); setTimeout(() => { panMoved = false; }, 0); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  });
+  bw.addEventListener("click", e => { if (panMoved) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+function updateRings(){ const bw = document.querySelector(".boardwrap svg"); if (!bw) return; const tmp = document.createElement("div"); tmp.innerHTML = boardSVG(); bw.replaceWith(tmp.firstChild); wireRoutes(); }
+
+boot();
+</script>
+</body>
+</html>

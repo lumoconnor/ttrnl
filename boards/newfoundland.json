@@ -1,0 +1,1593 @@
+{
+ "schemaVersion": 1,
+ "id": "newfoundland",
+ "name": "Newfoundland",
+ "author": "Luke",
+ "canvas": {
+  "width": 1876,
+  "height": 1979,
+  "background": "newfoundland-bg.png"
+ },
+ "colors": [
+  {
+   "id": "pink",
+   "label": "Pink",
+   "hex": "#d98ad8",
+   "count": 12
+  },
+  {
+   "id": "white",
+   "label": "White",
+   "hex": "#ececec",
+   "count": 12
+  },
+  {
+   "id": "blue",
+   "label": "Blue",
+   "hex": "#2a86e0",
+   "count": 12
+  },
+  {
+   "id": "yellow",
+   "label": "Yellow",
+   "hex": "#e8d84a",
+   "count": 12
+  },
+  {
+   "id": "orange",
+   "label": "Orange",
+   "hex": "#eaa52a",
+   "count": 12
+  },
+  {
+   "id": "black",
+   "label": "Black",
+   "hex": "#333333",
+   "count": 12
+  },
+  {
+   "id": "red",
+   "label": "Red",
+   "hex": "#d8302e",
+   "count": 12
+  },
+  {
+   "id": "green",
+   "label": "Green",
+   "hex": "#8ad42a",
+   "count": 12
+  },
+  {
+   "id": "wild",
+   "label": "Wild",
+   "hex": "#b48a5a",
+   "count": 14
+  }
+ ],
+ "cities": [
+  {
+   "id": "st-anthony",
+   "name": "St. Anthony",
+   "x": 932,
+   "y": 131
+  },
+  {
+   "id": "port-au-choix",
+   "name": "Port au Choix",
+   "x": 556,
+   "y": 381
+  },
+  {
+   "id": "roddickton",
+   "name": "Roddickton",
+   "x": 812,
+   "y": 380
+  },
+  {
+   "id": "cow-head",
+   "name": "Cow Head",
+   "x": 445,
+   "y": 612
+  },
+  {
+   "id": "jacksons-arm",
+   "name": "Jackson's Arm",
+   "x": 641,
+   "y": 698
+  },
+  {
+   "id": "baie-verte",
+   "name": "Baie Verte",
+   "x": 783,
+   "y": 657
+  },
+  {
+   "id": "rocky-harbour",
+   "name": "Rocky Harbour",
+   "x": 382,
+   "y": 792
+  },
+  {
+   "id": "springdale",
+   "name": "Springdale",
+   "x": 895,
+   "y": 857
+  },
+  {
+   "id": "deer-lake",
+   "name": "Deer Lake",
+   "x": 543,
+   "y": 930
+  },
+  {
+   "id": "corner-brook",
+   "name": "Corner Brook",
+   "x": 424,
+   "y": 1012
+  },
+  {
+   "id": "twillingate",
+   "name": "Twillingate",
+   "x": 1160,
+   "y": 777
+  },
+  {
+   "id": "fogo-island",
+   "name": "Fogo Island",
+   "x": 1322,
+   "y": 780
+  },
+  {
+   "id": "lewisporte",
+   "name": "Lewisporte",
+   "x": 1128,
+   "y": 940
+  },
+  {
+   "id": "buchans",
+   "name": "Buchans",
+   "x": 730,
+   "y": 1073
+  },
+  {
+   "id": "grand-falls",
+   "name": "Grand Falls",
+   "x": 1005,
+   "y": 1062
+  },
+  {
+   "id": "gander",
+   "name": "Gander",
+   "x": 1233,
+   "y": 1085
+  },
+  {
+   "id": "eastport",
+   "name": "Eastport",
+   "x": 1408,
+   "y": 1143
+  },
+  {
+   "id": "bonavista",
+   "name": "Bonavista",
+   "x": 1565,
+   "y": 1180
+  },
+  {
+   "id": "stephenville",
+   "name": "Stephenville",
+   "x": 300,
+   "y": 1195
+  },
+  {
+   "id": "nowhere",
+   "name": "Nowhere",
+   "x": 755,
+   "y": 1252
+  },
+  {
+   "id": "clarenville",
+   "name": "Clarenville",
+   "x": 1347,
+   "y": 1287
+  },
+  {
+   "id": "conne-river",
+   "name": "Conne River",
+   "x": 937,
+   "y": 1422
+  },
+  {
+   "id": "goobies",
+   "name": "Goobies",
+   "x": 1376,
+   "y": 1510
+  },
+  {
+   "id": "bay-roberts",
+   "name": "Bay Roberts",
+   "x": 1490,
+   "y": 1552
+  },
+  {
+   "id": "st-johns",
+   "name": "St. John's",
+   "x": 1657,
+   "y": 1537
+  },
+  {
+   "id": "port-aux-basques",
+   "name": "Port aux Basques",
+   "x": 88,
+   "y": 1548
+  },
+  {
+   "id": "burgeo",
+   "name": "Burgeo",
+   "x": 536,
+   "y": 1549
+  },
+  {
+   "id": "francois",
+   "name": "Francois",
+   "x": 712,
+   "y": 1548
+  },
+  {
+   "id": "harbour-breton",
+   "name": "Harbour Breton",
+   "x": 880,
+   "y": 1590
+  },
+  {
+   "id": "marystown",
+   "name": "Marystown",
+   "x": 1104,
+   "y": 1652
+  },
+  {
+   "id": "argentia",
+   "name": "Argentia",
+   "x": 1328,
+   "y": 1667
+  },
+  {
+   "id": "op",
+   "name": "Ocean Pond",
+   "x": 1512,
+   "y": 1656
+  },
+  {
+   "id": "mount-pearl",
+   "name": "Mount Pearl",
+   "x": 1642,
+   "y": 1638
+  },
+  {
+   "id": "saint-marys",
+   "name": "Saint Mary's",
+   "x": 1452,
+   "y": 1730
+  },
+  {
+   "id": "fortune",
+   "name": "Fortune",
+   "x": 888,
+   "y": 1745
+  },
+  {
+   "id": "saint-pierre",
+   "name": "Saint-Pierre",
+   "x": 808,
+   "y": 1815
+  },
+  {
+   "id": "ferryland",
+   "name": "Ferryland",
+   "x": 1627,
+   "y": 1797
+  },
+  {
+   "id": "trepassey",
+   "name": "Trepassey",
+   "x": 1490,
+   "y": 1885
+  },
+  {
+   "id": "labrador",
+   "name": "Labrador",
+   "x": 315,
+   "y": 242,
+   "offMap": true,
+   "marks": [
+    [
+     452,
+     125
+    ],
+    [
+     222,
+     395
+    ]
+   ]
+  },
+  {
+   "id": "nova-scotia",
+   "name": "Nova Scotia",
+   "x": 605,
+   "y": 1911,
+   "offMap": true,
+   "marks": [
+    [
+     198,
+     1888
+    ],
+    [
+     1020,
+     1900
+    ]
+   ]
+  }
+ ],
+ "routes": [
+  {
+   "id": "r001",
+   "a": "port-au-choix",
+   "b": "labrador",
+   "length": 4,
+   "color": "orange",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "path": [
+    [
+     556,
+     381
+    ],
+    [
+     352,
+     172
+    ]
+   ]
+  },
+  {
+   "id": "r002",
+   "a": "port-au-choix",
+   "b": "labrador",
+   "length": 4,
+   "color": "yellow",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "path": [
+    [
+     556,
+     381
+    ],
+    [
+     278,
+     312
+    ]
+   ]
+  },
+  {
+   "id": "r003",
+   "a": "port-au-choix",
+   "b": "st-anthony",
+   "length": 4,
+   "color": "pink",
+   "kind": "mountain",
+   "doubleGroup": "d1"
+  },
+  {
+   "id": "r004",
+   "a": "port-au-choix",
+   "b": "st-anthony",
+   "length": 4,
+   "color": "black",
+   "kind": "mountain",
+   "doubleGroup": "d1"
+  },
+  {
+   "id": "r005",
+   "a": "port-au-choix",
+   "b": "roddickton",
+   "length": 3,
+   "color": "gray",
+   "kind": "mountain"
+  },
+  {
+   "id": "r006",
+   "a": "roddickton",
+   "b": "st-anthony",
+   "length": 3,
+   "color": "blue",
+   "kind": "mountain"
+  },
+  {
+   "id": "r007",
+   "a": "roddickton",
+   "b": "jacksons-arm",
+   "length": 4,
+   "color": "green",
+   "kind": "mountain"
+  },
+  {
+   "id": "r008",
+   "a": "port-au-choix",
+   "b": "cow-head",
+   "length": 3,
+   "color": "green",
+   "kind": "mountain",
+   "doubleGroup": "d2"
+  },
+  {
+   "id": "r009",
+   "a": "port-au-choix",
+   "b": "cow-head",
+   "length": 3,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d2"
+  },
+  {
+   "id": "r010",
+   "a": "cow-head",
+   "b": "jacksons-arm",
+   "length": 3,
+   "color": "white",
+   "kind": "mountain"
+  },
+  {
+   "id": "r011",
+   "a": "cow-head",
+   "b": "rocky-harbour",
+   "length": 2,
+   "color": "yellow",
+   "kind": "mountain",
+   "doubleGroup": "d3"
+  },
+  {
+   "id": "r012",
+   "a": "cow-head",
+   "b": "rocky-harbour",
+   "length": 2,
+   "color": "blue",
+   "kind": "mountain",
+   "doubleGroup": "d3"
+  },
+  {
+   "id": "r013",
+   "a": "cow-head",
+   "b": "deer-lake",
+   "length": 3,
+   "color": "pink",
+   "kind": "mountain"
+  },
+  {
+   "id": "r014",
+   "a": "jacksons-arm",
+   "b": "deer-lake",
+   "length": 3,
+   "color": "orange"
+  },
+  {
+   "id": "r015",
+   "a": "rocky-harbour",
+   "b": "deer-lake",
+   "length": 2,
+   "color": "white",
+   "kind": "mountain"
+  },
+  {
+   "id": "r016",
+   "a": "rocky-harbour",
+   "b": "corner-brook",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d4"
+  },
+  {
+   "id": "r017",
+   "a": "rocky-harbour",
+   "b": "corner-brook",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d4"
+  },
+  {
+   "id": "r018",
+   "a": "baie-verte",
+   "b": "deer-lake",
+   "length": 3,
+   "color": "blue",
+   "kind": "mountain"
+  },
+  {
+   "id": "r019",
+   "a": "baie-verte",
+   "b": "springdale",
+   "length": 3,
+   "color": "black",
+   "kind": "mountain",
+   "doubleGroup": "d5"
+  },
+  {
+   "id": "r020",
+   "a": "baie-verte",
+   "b": "springdale",
+   "length": 3,
+   "color": "pink",
+   "kind": "mountain",
+   "doubleGroup": "d5"
+  },
+  {
+   "id": "r021",
+   "a": "baie-verte",
+   "b": "twillingate",
+   "length": 5,
+   "color": "red",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    985,
+    690
+   ]
+  },
+  {
+   "id": "r022",
+   "a": "deer-lake",
+   "b": "springdale",
+   "length": 5,
+   "color": "gray",
+   "doubleGroup": "d6",
+   "mid": [
+    720,
+    872
+   ]
+  },
+  {
+   "id": "r023",
+   "a": "deer-lake",
+   "b": "springdale",
+   "length": 5,
+   "color": "gray",
+   "doubleGroup": "d6",
+   "mid": [
+    720,
+    872
+   ]
+  },
+  {
+   "id": "r024",
+   "a": "deer-lake",
+   "b": "corner-brook",
+   "length": 1,
+   "color": "green",
+   "doubleGroup": "d7"
+  },
+  {
+   "id": "r025",
+   "a": "deer-lake",
+   "b": "corner-brook",
+   "length": 1,
+   "color": "orange",
+   "doubleGroup": "d7"
+  },
+  {
+   "id": "r026",
+   "a": "springdale",
+   "b": "buchans",
+   "length": 3,
+   "color": "blue",
+   "kind": "mountain"
+  },
+  {
+   "id": "r027",
+   "a": "springdale",
+   "b": "grand-falls",
+   "length": 3,
+   "color": "yellow",
+   "doubleGroup": "d8"
+  },
+  {
+   "id": "r028",
+   "a": "springdale",
+   "b": "grand-falls",
+   "length": 3,
+   "color": "red",
+   "doubleGroup": "d8"
+  },
+  {
+   "id": "r029",
+   "a": "deer-lake",
+   "b": "buchans",
+   "length": 3,
+   "color": "yellow",
+   "kind": "mountain"
+  },
+  {
+   "id": "r030",
+   "a": "buchans",
+   "b": "grand-falls",
+   "length": 3,
+   "color": "gray"
+  },
+  {
+   "id": "r031",
+   "a": "buchans",
+   "b": "stephenville",
+   "length": 6,
+   "color": "gray",
+   "kind": "mountain"
+  },
+  {
+   "id": "r032",
+   "a": "twillingate",
+   "b": "fogo-island",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d9",
+   "mid": [
+    1240,
+    752
+   ]
+  },
+  {
+   "id": "r033",
+   "a": "twillingate",
+   "b": "fogo-island",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d9",
+   "mid": [
+    1240,
+    752
+   ]
+  },
+  {
+   "id": "r034",
+   "a": "twillingate",
+   "b": "lewisporte",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d10"
+  },
+  {
+   "id": "r035",
+   "a": "twillingate",
+   "b": "lewisporte",
+   "length": 2,
+   "color": "pink",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d10"
+  },
+  {
+   "id": "r036",
+   "a": "lewisporte",
+   "b": "fogo-island",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1
+  },
+  {
+   "id": "r037",
+   "a": "lewisporte",
+   "b": "grand-falls",
+   "length": 2,
+   "color": "white",
+   "doubleGroup": "d11"
+  },
+  {
+   "id": "r038",
+   "a": "lewisporte",
+   "b": "grand-falls",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d11"
+  },
+  {
+   "id": "r039",
+   "a": "lewisporte",
+   "b": "gander",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d12"
+  },
+  {
+   "id": "r040",
+   "a": "lewisporte",
+   "b": "gander",
+   "length": 2,
+   "color": "yellow",
+   "doubleGroup": "d12"
+  },
+  {
+   "id": "r041",
+   "a": "grand-falls",
+   "b": "gander",
+   "length": 2,
+   "color": "orange",
+   "doubleGroup": "d13"
+  },
+  {
+   "id": "r042",
+   "a": "grand-falls",
+   "b": "gander",
+   "length": 2,
+   "color": "black",
+   "doubleGroup": "d13"
+  },
+  {
+   "id": "r043",
+   "a": "fogo-island",
+   "b": "bonavista",
+   "length": 6,
+   "color": "green",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    1495,
+    960
+   ]
+  },
+  {
+   "id": "r044",
+   "a": "gander",
+   "b": "eastport",
+   "length": 3,
+   "color": "red",
+   "mid": [
+    1335,
+    1055
+   ]
+  },
+  {
+   "id": "r045",
+   "a": "gander",
+   "b": "clarenville",
+   "length": 3,
+   "color": "white",
+   "doubleGroup": "d14"
+  },
+  {
+   "id": "r046",
+   "a": "gander",
+   "b": "clarenville",
+   "length": 3,
+   "color": "blue",
+   "doubleGroup": "d14"
+  },
+  {
+   "id": "r047",
+   "a": "eastport",
+   "b": "bonavista",
+   "length": 2,
+   "color": "blue",
+   "kind": "mountain",
+   "mid": [
+    1488,
+    1150
+   ]
+  },
+  {
+   "id": "r048",
+   "a": "eastport",
+   "b": "clarenville",
+   "length": 2,
+   "color": "gray"
+  },
+  {
+   "id": "r049",
+   "a": "clarenville",
+   "b": "bonavista",
+   "length": 3,
+   "color": "black",
+   "doubleGroup": "d15"
+  },
+  {
+   "id": "r050",
+   "a": "clarenville",
+   "b": "bonavista",
+   "length": 3,
+   "color": "yellow",
+   "doubleGroup": "d15"
+  },
+  {
+   "id": "r051",
+   "a": "gander",
+   "b": "conne-river",
+   "length": 4,
+   "color": "red",
+   "kind": "mountain"
+  },
+  {
+   "id": "r052",
+   "a": "nowhere",
+   "b": "grand-falls",
+   "length": 3,
+   "color": "green",
+   "kind": "mountain"
+  },
+  {
+   "id": "r053",
+   "a": "grand-falls",
+   "b": "conne-river",
+   "length": 3,
+   "color": "pink",
+   "doubleGroup": "d16"
+  },
+  {
+   "id": "r054",
+   "a": "grand-falls",
+   "b": "conne-river",
+   "length": 3,
+   "color": "white",
+   "doubleGroup": "d16"
+  },
+  {
+   "id": "r055",
+   "a": "corner-brook",
+   "b": "stephenville",
+   "length": 2,
+   "color": "white",
+   "doubleGroup": "d17"
+  },
+  {
+   "id": "r056",
+   "a": "corner-brook",
+   "b": "stephenville",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d17"
+  },
+  {
+   "id": "r057",
+   "a": "stephenville",
+   "b": "port-aux-basques",
+   "length": 5,
+   "color": "yellow",
+   "kind": "mountain",
+   "doubleGroup": "d18"
+  },
+  {
+   "id": "r058",
+   "a": "stephenville",
+   "b": "port-aux-basques",
+   "length": 5,
+   "color": "black",
+   "doubleGroup": "d18"
+  },
+  {
+   "id": "r059",
+   "a": "stephenville",
+   "b": "burgeo",
+   "length": 5,
+   "color": "gray",
+   "kind": "mountain"
+  },
+  {
+   "id": "r060",
+   "a": "nowhere",
+   "b": "burgeo",
+   "length": 4,
+   "color": "orange",
+   "kind": "mountain"
+  },
+  {
+   "id": "r061",
+   "a": "port-aux-basques",
+   "b": "burgeo",
+   "length": 5,
+   "color": "red",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    312,
+    1565
+   ]
+  },
+  {
+   "id": "r062",
+   "a": "burgeo",
+   "b": "francois",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1
+  },
+  {
+   "id": "r063",
+   "a": "nowhere",
+   "b": "conne-river",
+   "length": 3,
+   "color": "white",
+   "kind": "mountain"
+  },
+  {
+   "id": "r064",
+   "a": "francois",
+   "b": "conne-river",
+   "length": 3,
+   "color": "blue"
+  },
+  {
+   "id": "r065",
+   "a": "conne-river",
+   "b": "harbour-breton",
+   "length": 2,
+   "color": "green",
+   "doubleGroup": "d19"
+  },
+  {
+   "id": "r066",
+   "a": "conne-river",
+   "b": "harbour-breton",
+   "length": 2,
+   "color": "orange",
+   "doubleGroup": "d19"
+  },
+  {
+   "id": "r067",
+   "a": "conne-river",
+   "b": "marystown",
+   "length": 4,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    1000,
+    1560
+   ]
+  },
+  {
+   "id": "r068",
+   "a": "francois",
+   "b": "harbour-breton",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1
+  },
+  {
+   "id": "r069",
+   "a": "harbour-breton",
+   "b": "saint-pierre",
+   "length": 3,
+   "color": "black",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    822,
+    1705
+   ]
+  },
+  {
+   "id": "r070",
+   "a": "harbour-breton",
+   "b": "fortune",
+   "length": 2,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    900,
+    1670
+   ]
+  },
+  {
+   "id": "r071",
+   "a": "fortune",
+   "b": "saint-pierre",
+   "length": 1,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d20"
+  },
+  {
+   "id": "r072",
+   "a": "fortune",
+   "b": "saint-pierre",
+   "length": 1,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "doubleGroup": "d20"
+  },
+  {
+   "id": "r073",
+   "a": "fortune",
+   "b": "marystown",
+   "length": 3,
+   "color": "orange",
+   "kind": "mountain",
+   "doubleGroup": "d21"
+  },
+  {
+   "id": "r074",
+   "a": "fortune",
+   "b": "marystown",
+   "length": 3,
+   "color": "red",
+   "doubleGroup": "d21"
+  },
+  {
+   "id": "r075",
+   "a": "marystown",
+   "b": "goobies",
+   "length": 5,
+   "color": "pink",
+   "kind": "mountain",
+   "doubleGroup": "d22",
+   "mid": [
+    1200,
+    1525
+   ]
+  },
+  {
+   "id": "r076",
+   "a": "marystown",
+   "b": "goobies",
+   "length": 5,
+   "color": "white",
+   "doubleGroup": "d22",
+   "mid": [
+    1200,
+    1525
+   ]
+  },
+  {
+   "id": "r077",
+   "a": "marystown",
+   "b": "argentia",
+   "length": 3,
+   "color": "black",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    1220,
+    1640
+   ]
+  },
+  {
+   "id": "r078",
+   "a": "goobies",
+   "b": "clarenville",
+   "length": 3,
+   "color": "green",
+   "kind": "mountain",
+   "doubleGroup": "d23"
+  },
+  {
+   "id": "r079",
+   "a": "goobies",
+   "b": "clarenville",
+   "length": 3,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d23"
+  },
+  {
+   "id": "r080",
+   "a": "goobies",
+   "b": "argentia",
+   "length": 2,
+   "color": "blue"
+  },
+  {
+   "id": "r081",
+   "a": "argentia",
+   "b": "nova-scotia",
+   "length": 5,
+   "color": "pink",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "path": [
+    [
+     1328,
+     1667
+    ],
+    [
+     1112,
+     1924
+    ]
+   ]
+  },
+  {
+   "id": "r082",
+   "a": "port-aux-basques",
+   "b": "nova-scotia",
+   "length": 5,
+   "color": "blue",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "path": [
+    [
+     88,
+     1548
+    ],
+    [
+     97,
+     1898
+    ]
+   ]
+  },
+  {
+   "id": "r083",
+   "a": "goobies",
+   "b": "op",
+   "length": 2,
+   "color": "yellow",
+   "doubleGroup": "d24",
+   "mid": [
+    1414,
+    1606
+   ]
+  },
+  {
+   "id": "r084",
+   "a": "goobies",
+   "b": "op",
+   "length": 2,
+   "color": "red",
+   "doubleGroup": "d24",
+   "mid": [
+    1414,
+    1606
+   ]
+  },
+  {
+   "id": "r085",
+   "a": "bay-roberts",
+   "b": "op",
+   "length": 1,
+   "color": "gray",
+   "doubleGroup": "d25"
+  },
+  {
+   "id": "r086",
+   "a": "bay-roberts",
+   "b": "op",
+   "length": 1,
+   "color": "orange",
+   "doubleGroup": "d25"
+  },
+  {
+   "id": "r087",
+   "a": "bay-roberts",
+   "b": "st-johns",
+   "length": 2,
+   "color": "white",
+   "doubleGroup": "d26"
+  },
+  {
+   "id": "r088",
+   "a": "bay-roberts",
+   "b": "st-johns",
+   "length": 2,
+   "color": "red",
+   "doubleGroup": "d26"
+  },
+  {
+   "id": "r089",
+   "a": "st-johns",
+   "b": "mount-pearl",
+   "length": 1,
+   "color": "gray",
+   "doubleGroup": "d27"
+  },
+  {
+   "id": "r090",
+   "a": "st-johns",
+   "b": "mount-pearl",
+   "length": 1,
+   "color": "gray",
+   "doubleGroup": "d27"
+  },
+  {
+   "id": "r091",
+   "a": "op",
+   "b": "st-johns",
+   "length": 1,
+   "color": "black"
+  },
+  {
+   "id": "r092",
+   "a": "op",
+   "b": "mount-pearl",
+   "length": 1,
+   "color": "gray",
+   "doubleGroup": "d28"
+  },
+  {
+   "id": "r093",
+   "a": "op",
+   "b": "mount-pearl",
+   "length": 1,
+   "color": "blue",
+   "doubleGroup": "d28"
+  },
+  {
+   "id": "r094",
+   "a": "op",
+   "b": "saint-marys",
+   "length": 1,
+   "color": "green",
+   "doubleGroup": "d29"
+  },
+  {
+   "id": "r095",
+   "a": "op",
+   "b": "saint-marys",
+   "length": 1,
+   "color": "white",
+   "doubleGroup": "d29"
+  },
+  {
+   "id": "r096",
+   "a": "saint-marys",
+   "b": "mount-pearl",
+   "length": 2,
+   "color": "pink",
+   "mid": [
+    1552,
+    1703
+   ]
+  },
+  {
+   "id": "r097",
+   "a": "saint-marys",
+   "b": "ferryland",
+   "length": 2,
+   "color": "yellow",
+   "doubleGroup": "d30"
+  },
+  {
+   "id": "r098",
+   "a": "saint-marys",
+   "b": "ferryland",
+   "length": 2,
+   "color": "gray",
+   "doubleGroup": "d30"
+  },
+  {
+   "id": "r099",
+   "a": "mount-pearl",
+   "b": "ferryland",
+   "length": 2,
+   "color": "green",
+   "doubleGroup": "d31"
+  },
+  {
+   "id": "r100",
+   "a": "mount-pearl",
+   "b": "ferryland",
+   "length": 2,
+   "color": "black",
+   "doubleGroup": "d31"
+  },
+  {
+   "id": "r101",
+   "a": "saint-marys",
+   "b": "trepassey",
+   "length": 2,
+   "color": "black",
+   "doubleGroup": "d32"
+  },
+  {
+   "id": "r102",
+   "a": "saint-marys",
+   "b": "trepassey",
+   "length": 2,
+   "color": "red",
+   "kind": "mountain",
+   "doubleGroup": "d32"
+  },
+  {
+   "id": "r103",
+   "a": "trepassey",
+   "b": "ferryland",
+   "length": 2,
+   "color": "gray",
+   "kind": "mountain",
+   "doubleGroup": "d33"
+  },
+  {
+   "id": "r104",
+   "a": "trepassey",
+   "b": "ferryland",
+   "length": 2,
+   "color": "white",
+   "doubleGroup": "d33"
+  },
+  {
+   "id": "r105",
+   "a": "argentia",
+   "b": "saint-marys",
+   "length": 2,
+   "color": "gray",
+   "doubleGroup": "d34"
+  },
+  {
+   "id": "r106",
+   "a": "argentia",
+   "b": "saint-marys",
+   "length": 2,
+   "color": "gray",
+   "doubleGroup": "d34"
+  },
+  {
+   "id": "r107",
+   "a": "bonavista",
+   "b": "st-johns",
+   "length": 5,
+   "color": "gray",
+   "kind": "ferry",
+   "wildsRequired": 1,
+   "mid": [
+    1650,
+    1350
+   ]
+  }
+ ],
+ "tickets": [
+  {
+   "id": "t01",
+   "from": "buchans",
+   "to": "st-anthony",
+   "points": 16,
+   "long": true
+  },
+  {
+   "id": "t02",
+   "from": "port-aux-basques",
+   "to": "eastport",
+   "points": 18,
+   "long": true
+  },
+  {
+   "id": "t03",
+   "from": "st-johns",
+   "to": "baie-verte",
+   "points": 18,
+   "long": true
+  },
+  {
+   "id": "t04",
+   "from": "springdale",
+   "to": "nova-scotia",
+   "points": 18,
+   "long": true
+  },
+  {
+   "id": "t05",
+   "from": "labrador",
+   "to": "stephenville",
+   "points": 16,
+   "long": true
+  },
+  {
+   "id": "t06",
+   "from": "marystown",
+   "to": "corner-brook",
+   "points": 16,
+   "long": true
+  },
+  {
+   "id": "t07",
+   "from": "argentia",
+   "to": "fortune",
+   "points": 6
+  },
+  {
+   "id": "t08",
+   "from": "saint-pierre",
+   "to": "gander",
+   "points": 10
+  },
+  {
+   "id": "t09",
+   "from": "deer-lake",
+   "to": "port-aux-basques",
+   "points": 8
+  },
+  {
+   "id": "t10",
+   "from": "trepassey",
+   "to": "st-johns",
+   "points": 5
+  },
+  {
+   "id": "t11",
+   "from": "twillingate",
+   "to": "harbour-breton",
+   "points": 9
+  },
+  {
+   "id": "t12",
+   "from": "grand-falls",
+   "to": "goobies",
+   "points": 9
+  },
+  {
+   "id": "t13",
+   "from": "port-au-choix",
+   "to": "deer-lake",
+   "points": 8
+  },
+  {
+   "id": "t14",
+   "from": "bonavista",
+   "to": "op",
+   "points": 7
+  },
+  {
+   "id": "t15",
+   "from": "bay-roberts",
+   "to": "eastport",
+   "points": 9
+  },
+  {
+   "id": "t16",
+   "from": "st-anthony",
+   "to": "labrador",
+   "points": 8
+  },
+  {
+   "id": "t17",
+   "from": "ferryland",
+   "to": "goobies",
+   "points": 5
+  },
+  {
+   "id": "t18",
+   "from": "fogo-island",
+   "to": "clarenville",
+   "points": 7
+  },
+  {
+   "id": "t19",
+   "from": "burgeo",
+   "to": "springdale",
+   "points": 11
+  },
+  {
+   "id": "t20",
+   "from": "deer-lake",
+   "to": "roddickton",
+   "points": 8
+  },
+  {
+   "id": "t21",
+   "from": "cow-head",
+   "to": "st-anthony",
+   "points": 9
+  },
+  {
+   "id": "t22",
+   "from": "gander",
+   "to": "baie-verte",
+   "points": 9
+  },
+  {
+   "id": "t23",
+   "from": "lewisporte",
+   "to": "st-johns",
+   "points": 12
+  },
+  {
+   "id": "t24",
+   "from": "mount-pearl",
+   "to": "eastport",
+   "points": 9
+  },
+  {
+   "id": "t25",
+   "from": "lewisporte",
+   "to": "nowhere",
+   "points": 6
+  },
+  {
+   "id": "t26",
+   "from": "jacksons-arm",
+   "to": "stephenville",
+   "points": 6
+  },
+  {
+   "id": "t27",
+   "from": "fortune",
+   "to": "op",
+   "points": 9
+  },
+  {
+   "id": "t28",
+   "from": "francois",
+   "to": "marystown",
+   "points": 7
+  },
+  {
+   "id": "t29",
+   "from": "clarenville",
+   "to": "saint-marys",
+   "points": 7
+  },
+  {
+   "id": "t30",
+   "from": "conne-river",
+   "to": "buchans",
+   "points": 6
+  },
+  {
+   "id": "t31",
+   "from": "burgeo",
+   "to": "conne-river",
+   "points": 5
+  },
+  {
+   "id": "t32",
+   "from": "marystown",
+   "to": "clarenville",
+   "points": 9
+  },
+  {
+   "id": "t33",
+   "from": "trepassey",
+   "to": "conne-river",
+   "points": 11
+  },
+  {
+   "id": "t34",
+   "from": "grand-falls",
+   "to": "fogo-island",
+   "points": 5
+  },
+  {
+   "id": "t35",
+   "from": "rocky-harbour",
+   "to": "springdale",
+   "points": 8
+  },
+  {
+   "id": "t36",
+   "from": "bonavista",
+   "to": "gander",
+   "points": 6
+  }
+ ],
+ "rules": {
+  "playersMin": 2,
+  "playersMax": 5,
+  "trainsPerPlayer": 45,
+  "handSize": 4,
+  "marketSize": 5,
+  "maxFaceUpWilds": 3,
+  "routeScores": {
+   "1": 1,
+   "2": 2,
+   "3": 4,
+   "4": 7,
+   "5": 10,
+   "6": 15
+  },
+  "longestPathBonus": 10,
+  "ticketsOfferedStart": 3,
+  "ticketsKeepStart": 2,
+  "ticketsOffered": 3,
+  "ticketsKeep": 1,
+  "endTrainsThreshold": 2,
+  "doubleRoutesMinPlayers": 4,
+  "mountainExtraTrains": 1,
+  "mountainBonusPoints": 2
+ }
+}
