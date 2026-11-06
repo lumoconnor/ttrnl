@@ -82,20 +82,19 @@ button.card{padding:4px 5px}
 .card.c-wild{background:conic-gradient(#d8302e,#eaa52a,#e8d84a,#8ad42a,#2a86e0,#d98ad8,#d8302e)!important}
 .card.c-wild .lbl{background:#fff;border-radius:4px;padding:0 3px;align-self:flex-start}
 .card.empty{background:var(--soft)!important;border-style:dashed;color:var(--muted)}
-.drawrow{display:flex;gap:6px;align-items:flex-start}
+.drawrow{display:flex;gap:6px;align-items:flex-end}
 .drawrow .card{width:44px;height:62px;flex:none;font-size:10px;padding:4px 3px}
 .drawrow .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px 0 6px}
-.stack{position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.5);cursor:pointer;transition:transform .12s}
+/* A stack is the top card raised by its depth, with the cards under it showing as edges below, so its bottom lines up with the face-up cards. */
+.stack{--d:0;position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.45);cursor:pointer;margin-bottom:calc(var(--d) * 3px);transition:transform .12s}
 .stack:not(:disabled):hover{transform:translateY(-2px)}
 .stack:disabled{cursor:default;opacity:.6}
-.stack.d1{box-shadow:2px 2px 0 var(--stackedge),2px 2px 0 1px rgba(0,0,0,.4)}
-.stack.d2{box-shadow:2px 2px 0 var(--stackedge),2px 2px 0 1px rgba(0,0,0,.4),4px 4px 0 var(--stackedge),4px 4px 0 1px rgba(0,0,0,.4)}
-.stack.d3{box-shadow:2px 2px 0 var(--stackedge),2px 2px 0 1px rgba(0,0,0,.4),4px 4px 0 var(--stackedge),4px 4px 0 1px rgba(0,0,0,.4),6px 6px 0 var(--stackedge),6px 6px 0 1px rgba(0,0,0,.4)}
-.stack.empty{background:var(--soft)!important;border-style:dashed;box-shadow:none;color:var(--muted);font-size:11px}
-.stack .cnt{position:absolute;right:-9px;bottom:-9px;min-width:22px;padding:1px 5px;border-radius:11px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:11px;font-weight:700;line-height:16px;text-align:center}
-.deck{--stackedge:#1b2e3c;width:44px;height:62px;
-  background:repeating-linear-gradient(90deg,transparent 0 6px,#b9a77e 6px 8px) center/70% 26% no-repeat,
-    linear-gradient(transparent 38%,#e4d5ae 38% 42%,transparent 42% 58%,#e4d5ae 58% 62%,transparent 62%) center/100% 100% no-repeat,#24405a}
+.stack.d1{--d:1;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45)}
+.stack.d2{--d:2;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45),0 6px 0 -1px var(--stackedge),0 6px 0 0 rgba(0,0,0,.45)}
+.stack.d3{--d:3;box-shadow:0 3px 0 -1px var(--stackedge),0 3px 0 0 rgba(0,0,0,.45),0 6px 0 -1px var(--stackedge),0 6px 0 0 rgba(0,0,0,.45),0 9px 0 -1px var(--stackedge),0 9px 0 0 rgba(0,0,0,.45)}
+.stack.empty{background:var(--soft)!important;border-style:dashed;box-shadow:none;color:var(--muted);font-size:11px;margin-bottom:0}
+.stack .cnt{position:absolute;right:-9px;top:-9px;min-width:22px;padding:1px 5px;border-radius:11px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:11px;font-weight:700;line-height:16px;text-align:center}
+.deck{--stackedge:#5d88ad;width:44px;height:62px;background:#8db7da}
 .tixstack{--stackedge:#d8c79c;width:66px;height:46px;background:#f6edd4;border-color:#8a6e3a;display:grid;place-items:center}
 .tixstack svg{width:46px;height:28px}
 .tixrow{display:flex;gap:16px;align-items:center;margin-top:14px}
