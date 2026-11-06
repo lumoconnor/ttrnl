@@ -89,7 +89,10 @@ button.card{padding:4px 5px}
 .pile{--d:0;--edgeline:rgba(0,0,0,.45);position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.45);cursor:pointer;margin-bottom:calc(var(--d) * 3px);transition:transform .12s}
 .pile:not(:disabled):hover,.drawrow button.card:not(:disabled):hover{transform:translateY(-2px)}
 .drawrow button.card{transition:transform .12s}
-.pile:not(:disabled):hover{--edgeline:var(--ink)}
+/* One outline around the whole pile: it sits exactly on the top card's border and wraps down around the bottom card. */
+.pile::before{content:"";position:absolute;left:-2px;right:-2px;top:-2px;bottom:calc(-2px - var(--d) * 3px);border:2px solid var(--pileline);border-radius:8px;pointer-events:none}
+.pile{--topline:rgba(0,0,0,.5);--pileline:var(--topline);border-color:var(--topline)}
+.pile:not(:disabled):hover{--pileline:var(--ink);border-color:var(--topline)}
 .pile:focus-visible{outline:none}
 .pile:focus-visible::after{content:"";position:absolute;inset:-5px -5px calc(-5px - var(--d) * 3px) -5px;border:3px solid var(--focus);border-radius:11px;pointer-events:none}
 .pile:disabled{cursor:default;opacity:.6}
@@ -99,7 +102,7 @@ button.card{padding:4px 5px}
 .pile.empty{background:var(--soft)!important;border-style:dashed;box-shadow:none;color:var(--muted);font-size:11px;margin-bottom:0}
 .pile .cnt{position:absolute;z-index:1;right:-9px;top:-9px;min-width:22px;padding:1px 5px;border-radius:11px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:11px;font-weight:700;line-height:16px;text-align:center}
 .deck{--stackedge:#5d88ad;width:44px;height:62px;background:#8db7da}
-.tixstack{--stackedge:#d8c79c;width:66px;height:46px;background:#f6edd4;border-color:#8a6e3a;display:grid;place-items:center}
+.tixstack{--stackedge:#d8c79c;--topline:#8a6e3a;width:66px;height:46px;background:#f6edd4;display:grid;place-items:center}
 .tixstack svg{width:46px;height:28px}
 .tixrow{display:flex;gap:16px;align-items:center;margin-top:14px}
 
