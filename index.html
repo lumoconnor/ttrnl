@@ -54,7 +54,7 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .status{font-family:var(--display);font-size:20px;font-weight:700}
 .status.mine{color:var(--accent)}
 .boardbox{--maph:calc(100vh - 24px);position:relative;width:100%;aspect-ratio:1876/1979;max-width:calc(var(--maph) * 1876 / 1979);margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
-.boardwrap{position:absolute;inset:0;overflow:auto;cursor:default;touch-action:none;overscroll-behavior:contain;-webkit-user-select:none;user-select:none}
+.boardwrap{position:absolute;inset:0;overflow:hidden;cursor:default;touch-action:none;overscroll-behavior:contain;-webkit-user-select:none;user-select:none}
 /* Touch: no double-tap page zoom on controls, no long-press menus or text selection in the game, no bounce or pull-to-refresh. */
 html,body{overscroll-behavior:none}
 body{-webkit-tap-highlight-color:transparent}
@@ -1086,8 +1086,7 @@ function wireBoard(){
   bw.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pts.size) setHover(null); });
   bw.addEventListener("dblclick", e => { if (lastPointer !== "mouse") return; const [ox, oy] = local(e.clientX, e.clientY); applyZoom(zoom >= ZOOM_MAX - .01 ? 1 : zoom * 2, ox, oy); });
   bw.addEventListener("wheel", e => {
-    // Plain wheel scrolls the map. Cmd (Mac) or Ctrl (PC) + wheel zooms around the pointer; a trackpad pinch arrives as ctrl+wheel too.
-    if (!e.ctrlKey && !e.metaKey) return;
+    // Like a web map: the wheel zooms around the pointer (with or without Cmd/Ctrl), and dragging moves the map.
     e.preventDefault();
     const dy = Math.max(-100, Math.min(100, e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1)));
     const [ox, oy] = local(e.clientX, e.clientY);
