@@ -53,10 +53,12 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .topbar{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .status{font-family:var(--display);font-size:20px;font-weight:700}
 .status.mine{color:var(--accent)}
-.boardbox{position:relative;width:100%;aspect-ratio:1876/1979;margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
+.boardbox{--maph:calc(100vh - 24px);position:relative;width:100%;aspect-ratio:1876/1979;max-height:var(--maph);margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
 .boardwrap{position:absolute;inset:0;overflow:auto;cursor:default}
 .boardwrap.pan{cursor:grab}.boardwrap.dragging{cursor:grabbing}
-.boardwrap svg{display:block;height:auto}
+@supports (height:100dvh){.boardbox{--maph:calc(100dvh - 24px)}}
+/* At zoom 1 the whole map fits the box: full width, or full height when the window is short (water fills the sides). */
+.boardwrap svg{display:block;height:auto;margin:0 auto;width:calc(var(--z) * min(100%, (var(--maph) - 2px) * 1876 / 1979))}
 .zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}
 .zoom button{padding:4px 10px;background:var(--panel)}
 .rt{cursor:pointer}
@@ -786,7 +788,7 @@ function boardSVG(){
     const ring = ticketCities.has(c.id) ? `<rect x="-82" y="-27" width="164" height="54" rx="12" fill="none" stroke="${hi?.has(c.id) ? "#e8431a" : "#1d6fd1"}" stroke-width="${hi?.has(c.id) ? 6 : 4}"/>` : "";
     tags += `<g transform="translate(${f1(x)} ${f1(y)})">${ring}<rect x="-74" y="-20" width="148" height="40" rx="8" fill="#22313a" stroke="#fff" stroke-width="2"/><text class="tag" y="8" text-anchor="middle">${esc(c.name)}</text></g>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:${zoom * 100}%" role="img" aria-label="Map of Newfoundland with rail routes">
+  return `<svg viewBox="0 0 ${W} ${H}" style="--z:${zoom}" role="img" aria-label="Map of Newfoundland with rail routes">
   <defs><linearGradient id="wildG" x1="0" x2="1"><stop offset="0" stop-color="#d8302e"/><stop offset=".33" stop-color="#e8d84a"/><stop offset=".66" stop-color="#2a86e0"/><stop offset="1" stop-color="#d98ad8"/></linearGradient></defs>
   <rect width="${W}" height="${H}" fill="#bcd3df"/><path d="${COAST}" fill="#e2e8cc" stroke="#7f9a80" stroke-width="2.5" stroke-linejoin="round"/>
   ${rings}${routes}${cities}${tags}</svg>`;
