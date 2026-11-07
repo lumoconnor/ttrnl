@@ -57,7 +57,7 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .boardwrap{position:absolute;inset:0;overflow:auto;cursor:default}
 .boardwrap.pan{cursor:grab}.boardwrap.dragging{cursor:grabbing}
 @supports (height:100dvh){.boardbox{--maph:calc(100dvh - 24px)}}
-/* The box keeps the map's shape and is never taller than the window; at zoom 1 the map fills it exactly. */
+/* The box keeps the map's shape and is never taller than the window space below the top bar (set by fitBoard); at zoom 1 the map fills it exactly. */
 .boardwrap svg{display:block;height:auto;width:calc(var(--z) * 100%)}
 .zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}
 .zoom button{padding:4px 10px;background:var(--panel)}
@@ -888,6 +888,7 @@ function render(){
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
   g.innerHTML = html; wire();
+  fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
   const le = g.querySelector(".log"); if (le && logAtBottom) le.scrollTop = le.scrollHeight;
 }
@@ -960,8 +961,9 @@ function wireRoutes(){ document.querySelectorAll("#game .rt:not(.own)[data-route
 function fitBoard(){
   const box = document.querySelector(".boardbox"); if (!box) return;
   const top = box.getBoundingClientRect().top + window.scrollY, avail = Math.max(320, window.innerHeight - top - 14);
-  box.style.maxWidth = (avail * 1876 / 1979) + "px";
+  box.style.setProperty("--maph", avail + "px");
 }
+window.addEventListener("resize", fitBoard);
 function setZoom(z){
   const bw = document.querySelector(".boardwrap"); if (!bw || z === zoom) return;
   const cx = (bw.scrollLeft + bw.clientWidth / 2) / bw.scrollWidth, cy = (bw.scrollTop + bw.clientHeight / 2) / bw.scrollHeight;
