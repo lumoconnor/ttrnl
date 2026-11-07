@@ -1090,7 +1090,7 @@ function wireBoard(){
     e.preventDefault();
     const dy = Math.max(-100, Math.min(100, e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1)));
     const [ox, oy] = local(e.clientX, e.clientY);
-    applyZoom(zoom * Math.exp(-dy / (Math.abs(dy) < 40 ? 100 : 300)), ox, oy);
+    applyZoom(zoom * Math.exp(-dy / (Math.abs(dy) < 40 ? 200 : 600)), ox, oy);
   }, { passive:false });
   // Safari's own pinch events: stop them zooming the page while the fingers are on the map.
   ["gesturestart", "gesturechange"].forEach(t => bw.addEventListener(t, e => e.preventDefault()));
