@@ -118,6 +118,10 @@ button.card{padding:4px 5px}
 .tix{display:grid;gap:6px}
 .tk{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .tk.done{border-color:var(--ok)}
+.tk[data-tk]{cursor:pointer}
+.tk.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tk .keepbox{display:grid;place-items:center;width:34px;height:34px;margin:-7px 0 -7px -9px;cursor:pointer}
+.tk .keepbox input{width:20px;height:20px;margin:0;cursor:pointer}
 .tk .pts{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
 .tk .ok{color:var(--ok);font-weight:700;font-size:12px}
 label.tk{cursor:pointer}
@@ -382,6 +386,7 @@ function endGame(s){
 /* ---------------- Game session ---------------- */
 let db = null, me = null, acct = null, code = null, gameRef = null, state = null, inbox = [];
 let tkSel = new Set(), tkKey = "";
+let focusTk = null, viewAnim = 0;
 let selShown = new Set(), lastPointer = "mouse", lastPointerAt = 0, wakeLock = null;
 let local = null, confirmEnd = false, unsubs = [], lastSent = 0, sendError = null, selRoute = null, zoom = 1, hlTicket = null, busy = false, again = false, waitTimer = null, hostSlow = false;
 const isHost = () => state && me && state.hostId === me;
@@ -891,7 +896,7 @@ function render(){
   if (pk !== tkKey) { tkKey = pk; tkSel = new Set(); }
   if (mp?.pending?.length) {
     const min = s.phase === "initialTickets" ? R.ticketsKeepStart : R.ticketsKeep;
-    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix">${mp.pending.map(id => { const t = TICKET[id]; return `<label class="tk" data-tk="${id}"><span><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${tkSel.has(id) ? " checked" : ""}> ${esc(cname(t.from))} – ${esc(cname(t.to))}</span><span class="pts">${t.points}</span></label>`; }).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
+    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix">${mp.pending.map(id => { const t = TICKET[id]; return `<div class="tk${focusTk?.id === id ? " on" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${focusTk?.id === id}"><span class="row" style="gap:4px;flex-wrap:nowrap"><label class="keepbox" title="Keep this ticket"><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${tkSel.has(id) ? " checked" : ""} aria-label="Keep ${esc(cname(t.from))} – ${esc(cname(t.to))}"></label>${esc(cname(t.from))} – ${esc(cname(t.to))}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
   }
   // market
   if (s.phase !== "ended") {
@@ -908,7 +913,7 @@ function render(){
   }
   // tickets
   if (mp?.tickets?.length) {
-    html += `<div class="panel"><h3>Your tickets</h3><div class="tix">${mp.tickets.map(id => { const t = TICKET[id]; const ok = conn(t.from, t.to); return `<div class="tk ${ok ? "done" : ""}" data-tk="${id}" tabindex="0"><span>${esc(cname(t.from))} – ${esc(cname(t.to))} ${ok ? '<span class="ok">Connected</span>' : ""}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div></div>`;
+    html += `<div class="panel"><h3>Your tickets</h3><div class="tix">${mp.tickets.map(id => { const t = TICKET[id]; const ok = conn(t.from, t.to); return `<div class="tk${ok ? " done" : ""}${focusTk?.id === id ? " on" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${focusTk?.id === id}"><span>${esc(cname(t.from))} – ${esc(cname(t.to))} ${ok ? '<span class="ok">Connected</span>' : ""}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div></div>`;
   }
   // players
   html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score">${p.score}</span></div>`).join("")}</div>
@@ -965,7 +970,7 @@ function wire(){
   $("drawDeck") && ($("drawDeck").onclick = () => send({ type:"drawDeck" }));
   $("drawTix") && ($("drawTix").onclick = () => send({ type:"drawTickets" }));
   $("passBtn") && ($("passBtn").onclick = () => send({ type:"pass" }));
-  $("keepBtn") && ($("keepBtn").onclick = () => send({ type:"keepTickets", ids:[...tkSel] }));
+  $("keepBtn") && ($("keepBtn").onclick = () => { focusTk = null; hlTicket = null; send({ type:"keepTickets", ids:[...tkSel] }); });
   g.querySelectorAll(".keep").forEach(cb => cb.onchange = () => {
     cb.checked ? tkSel.add(cb.value) : tkSel.delete(cb.value);
     const kb = $("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
@@ -979,10 +984,11 @@ function wire(){
   wireRoutes();
   g.querySelectorAll("[data-tk]").forEach(el => {
     el.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") { hlTicket = el.dataset.tk; updateRings(); } });
-    el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { hlTicket = null; updateRings(); } });
-    el.addEventListener("click", e => { if (lastPointer !== "mouse" && !e.target.closest("input")) { hlTicket = hlTicket === el.dataset.tk ? null : el.dataset.tk; updateRings(); } });
+    el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { hlTicket = focusTk?.id || null; updateRings(); } });
+    el.addEventListener("click", e => { if (!e.target.closest(".keepbox")) toggleTicketFocus(el.dataset.tk); });
+    el.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === el) { e.preventDefault(); toggleTicketFocus(el.dataset.tk); } });
     el.addEventListener("focus", () => { if (lastPointer !== "mouse" && Date.now() - lastPointerAt < 800) return; hlTicket = el.dataset.tk; updateRings(); });
-    el.addEventListener("blur", () => { if (lastPointer === "mouse") { hlTicket = null; updateRings(); } });
+    el.addEventListener("blur", () => { if (lastPointer === "mouse") { hlTicket = focusTk?.id || null; updateRings(); } });
   });
 }
 function wireRoutes(){ /* routes are picked by wireBoard: the closest open route to a tap */ }
@@ -1005,7 +1011,7 @@ function applyZoom(z, ox, oy){
   zoom = z; svg.style.setProperty("--z", z); bw.classList.toggle("pan", z > 1);
   bw.scrollLeft = l; bw.scrollTop = t;
 }
-function setZoom(z){ applyZoom(z); }
+function setZoom(z){ cancelAnimationFrame(viewAnim); applyZoom(z); }
 function routeAt(clientX, clientY, pointerType){
   const svg = document.querySelector(".boardwrap svg"); if (!svg || !state) return null;
   const rc = svg.getBoundingClientRect(), W = BOARD.canvas.width, scale = rc.width / W;
@@ -1043,6 +1049,7 @@ function wireBoard(){
     g = { mode:"pinch", d0:Math.hypot(a.x - b.x, a.y - b.y) || 1, z0:zoom, ax:(bw.scrollLeft + mx) / zoom, ay:(bw.scrollTop + my) / zoom };
   };
   bw.addEventListener("pointerdown", e => {
+    cancelAnimationFrame(viewAnim);
     if (e.pointerType === "mouse" && e.button !== 0) return;
     if (e.target.closest(".zoom")) return;
     pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
@@ -1086,6 +1093,7 @@ function wireBoard(){
   bw.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pts.size) setHover(null); });
   bw.addEventListener("dblclick", e => { if (lastPointer !== "mouse") return; const [ox, oy] = local(e.clientX, e.clientY); applyZoom(zoom >= ZOOM_MAX - .01 ? 1 : zoom * 2, ox, oy); });
   bw.addEventListener("wheel", e => {
+    cancelAnimationFrame(viewAnim);
     // Like a web map: the wheel zooms around the pointer (with or without Cmd/Ctrl), and dragging moves the map.
     e.preventDefault();
     const dy = Math.max(-100, Math.min(100, e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1)));
@@ -1095,6 +1103,49 @@ function wireBoard(){
   // Safari's own pinch events: stop them zooming the page while the fingers are on the map.
   ["gesturestart", "gesturechange"].forEach(t => bw.addEventListener(t, e => e.preventDefault()));
 }
+/* ---------------- Ticket focus ----------------
+   Clicking a ticket glides the map to show both towns; clicking it again glides back to the earlier view.
+   Clicking anywhere else just drops the focus and leaves the map where it is. */
+function mapView(){
+  const bw = document.querySelector(".boardwrap"); if (!bw) return null;
+  const s1 = bw.clientWidth / BOARD.canvas.width;
+  return { z:zoom, cx:(bw.scrollLeft + bw.clientWidth / 2) / (s1 * zoom), cy:(bw.scrollTop + bw.clientHeight / 2) / (s1 * zoom) };
+}
+function glideTo(v){
+  cancelAnimationFrame(viewAnim);
+  const from = mapView(); if (!from) return;
+  const t0 = performance.now(), dur = 550, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const step = now => {
+    const bw = document.querySelector(".boardwrap"), svg = bw?.querySelector("svg"); if (!svg) return;
+    const k = ease(Math.min(1, (now - t0) / dur)), z = from.z * Math.pow(v.z / from.z, k);
+    const cx = from.cx + (v.cx - from.cx) * k, cy = from.cy + (v.cy - from.cy) * k, s1 = bw.clientWidth / BOARD.canvas.width;
+    zoom = z; svg.style.setProperty("--z", z); bw.classList.toggle("pan", z > 1);
+    bw.scrollLeft = cx * s1 * z - bw.clientWidth / 2; bw.scrollTop = cy * s1 * z - bw.clientHeight / 2;
+    if (k < 1) viewAnim = requestAnimationFrame(step);
+  };
+  viewAnim = requestAnimationFrame(step);
+}
+function ticketView(id){
+  const t = TICKET[id], bw = document.querySelector(".boardwrap"); if (!t || !bw) return null;
+  const P = [t.from, t.to].flatMap(cid => { const c = CITY[cid]; return c.marks || [[c.x, c.y]]; });
+  const xs = P.map(q => q[0]), ys = P.map(q => q[1]), pad = 130;
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  const s1 = bw.clientWidth / BOARD.canvas.width;
+  const z = Math.max(1, Math.min(ZOOM_MAX, bw.clientWidth / ((x1 - x0) * s1), bw.clientHeight / ((y1 - y0) * s1)));
+  return { z, cx:(x0 + x1) / 2, cy:(y0 + y1) / 2 };
+}
+function toggleTicketFocus(id){
+  if (focusTk?.id === id) { const back = focusTk.prev; focusTk = null; hlTicket = lastPointer === "mouse" ? id : null; render(); glideTo(back); return; }
+  const prev = focusTk ? focusTk.prev : mapView(), v = ticketView(id); if (!v) return;
+  focusTk = { id, prev }; hlTicket = id; render(); glideTo(v);
+}
+// A click or tap anywhere other than the focused ticket drops the focus, leaving the map as it is.
+document.addEventListener("pointerdown", e => {
+  if (!focusTk || e.target.closest?.("[data-tk]")) return; // another ticket: its click moves the focus and keeps the original view to return to
+  focusTk = null; hlTicket = null;
+  document.querySelectorAll(".tk.on").forEach(el => { el.classList.remove("on"); el.setAttribute("aria-pressed", "false"); });
+  updateRings();
+}, true);
 function updateRings(){ const bw = document.querySelector(".boardwrap svg"); if (!bw) return; const tmp = document.createElement("div"); tmp.innerHTML = boardSVG(); bw.replaceWith(tmp.firstChild); wireRoutes(); }
 
 boot();
