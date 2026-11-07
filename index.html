@@ -30,7 +30,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance}
 h1{font-size:30px;letter-spacing:.01em} h2{font-size:19px} h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--body)}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 12px}
-button:hover:not(:disabled){border-color:var(--ink)}
+@media (hover:hover){button:hover:not(:disabled){border-color:var(--ink)}}
 button:disabled{opacity:.45;cursor:not-allowed}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
@@ -54,17 +54,24 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .status{font-family:var(--display);font-size:20px;font-weight:700}
 .status.mine{color:var(--accent)}
 .boardbox{--maph:calc(100vh - 24px);position:relative;width:100%;aspect-ratio:1876/1979;max-width:calc(var(--maph) * 1876 / 1979);margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
-.boardwrap{position:absolute;inset:0;overflow:auto;cursor:default}
+.boardwrap{position:absolute;inset:0;overflow:auto;cursor:default;touch-action:none;overscroll-behavior:contain;-webkit-user-select:none;user-select:none}
+/* Touch: no double-tap page zoom on controls, no long-press menus or text selection in the game, no bounce or pull-to-refresh. */
+html,body{overscroll-behavior:none}
+body{-webkit-tap-highlight-color:transparent}
+button,.card,.pile,.tk,label{touch-action:manipulation}
+#game{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.claimopt{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px}
+.claimopt h3{margin:0}
 .boardwrap.pan{cursor:grab}.boardwrap.dragging{cursor:grabbing}
 @supports (height:100dvh){.boardbox{--maph:calc(100dvh - 24px)}}
 /* The box keeps the map's shape and is never taller than the window space below the top bar (set by fitBoard); at zoom 1 the map fills it exactly. */
 .boardwrap svg{display:block;height:auto;width:calc(var(--z) * 100%)}
-.zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}
-.zoom button{padding:4px 10px;background:var(--panel)}
-.rt{cursor:pointer}
+.zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:6px}
+.zoom button{min-width:44px;min-height:44px;padding:0 12px;font-size:22px;line-height:1;background:var(--panel)}
 .rt.own,.rt.own *{cursor:default;pointer-events:none!important}
 .route-hit{fill:none;stroke:transparent;stroke-width:26;pointer-events:stroke}
-.rt:not(.own):hover .car{stroke:#e8431a;stroke-width:3.2}
+.boardwrap.hov{cursor:pointer}
+.rt.hov .car{stroke:#e8431a;stroke-width:3.2}
 .rt.sel .car{stroke:#e8431a;stroke-width:4}
 .city{font-family:var(--display);font-weight:700;font-size:25px;fill:#1f2a2e;paint-order:stroke;stroke:#ffffffd9;stroke-width:6px;stroke-linejoin:round;pointer-events:none}
 .tag{font-family:var(--display);font-weight:700;font-size:22px;fill:#fff;pointer-events:none}
@@ -89,12 +96,12 @@ button.card{padding:4px 5px}
 .drawrow .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px 0 6px}
 /* A pile is the top card raised by its depth, with the cards under it showing as edges below, so its bottom lines up with the face-up cards. */
 .pile{--d:0;--edgeline:rgba(0,0,0,.45);position:relative;flex:none;padding:0;border-radius:8px;border:2px solid rgba(0,0,0,.45);cursor:pointer;margin-bottom:calc(var(--d) * 3px);transition:transform .12s}
-.pile:not(:disabled):hover,.drawrow button.card:not(:disabled):hover{transform:translateY(-2px)}
+@media (hover:hover){.pile:not(:disabled):hover,.drawrow button.card:not(:disabled):hover{transform:translateY(-2px)}}
 .drawrow button.card{transition:transform .12s}
 /* One outline around the whole pile: it sits exactly on the top card's border and wraps down around the bottom card. */
 .pile::before{content:"";position:absolute;left:-2px;right:-2px;top:-2px;bottom:calc(-2px - var(--d) * 3px);border:2px solid var(--pileline);border-radius:8px;pointer-events:none}
 .pile{--topline:rgba(0,0,0,.5);--pileline:var(--topline);border-color:var(--topline)}
-.pile:not(:disabled):hover{--pileline:var(--ink);border-color:var(--topline)}
+@media (hover:hover){.pile:not(:disabled):hover{--pileline:var(--ink);border-color:var(--topline)}}
 .pile:focus-visible{outline:none}
 .pile:focus-visible::after{content:"";position:absolute;inset:-5px -5px calc(-5px - var(--d) * 3px) -5px;border:3px solid var(--focus);border-radius:11px;pointer-events:none}
 .pile:disabled{cursor:default;opacity:.6}
@@ -375,6 +382,7 @@ function endGame(s){
 /* ---------------- Game session ---------------- */
 let db = null, me = null, acct = null, code = null, gameRef = null, state = null, inbox = [];
 let tkSel = new Set(), tkKey = "";
+let selShown = new Set(), lastPointer = "mouse", lastPointerAt = 0, wakeLock = null;
 let local = null, confirmEnd = false, unsubs = [], lastSent = 0, sendError = null, selRoute = null, zoom = 1, hlTicket = null, busy = false, again = false, waitTimer = null, hostSlow = false;
 const isHost = () => state && me && state.hostId === me;
 const myIndex = () => state?.players?.findIndex(p => p.id === me) ?? -1;
@@ -403,8 +411,9 @@ class HostStore {
     return new Promise((resolve, reject) => {
       const peer = this.peer = new Peer(PEER_PREFIX + this.code, PEER_OPTS);
       peer.on("open", () => { this.ready = true; setNetDown(false); resolve(this); });
+      this.wake = () => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); };
       peer.on("error", e => { if (!this.ready) { peer.destroy(); reject(netErr(e.type, e.message)); } else console.warn("peer", e.type, e.message); });
-      peer.on("disconnected", () => { if (!peer.destroyed) setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000); });
+      peer.on("disconnected", () => { if (peer.destroyed) return; if (this.ready) setNetDown(true); setTimeout(() => { if (!peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000); });
       peer.on("connection", c => this.accept(c));
     });
   }
@@ -507,6 +516,19 @@ class GuestStore {
 }
 
 let net = null;
+// Back from the background (iPad apps are paused when you switch away): reconnect straight away and keep the screen on.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  net?.wake?.(); if (net instanceof GuestStore && !net.conn?.open) net.connect();
+  if (state && state.phase !== "ended") keepAwake(true);
+});
+async function keepAwake(on){
+  try {
+    if (on && !wakeLock && navigator.wakeLock && document.visibilityState === "visible") { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch {}
+}
+document.addEventListener("pointerdown", e => { lastPointer = e.pointerType || "mouse"; lastPointerAt = Date.now(); }, true);
 function closeNet(){ net?.close(); net = null; db = null; netDown = false; }
 function useNet(s){
   net = s;
@@ -570,6 +592,7 @@ async function boot(){
   }
 }
 function showHome(msg){
+  keepAwake(false);
   document.getElementById("boot").hidden = true;
   document.getElementById("home").hidden = false;
   document.getElementById("game").hidden = true;
@@ -761,7 +784,7 @@ function boardSVG(){
     });
     const d = "M" + cv.P.map(p => `${f1(p.x)} ${f1(p.y)}`).join("L");
     const desc = `${cname(r.a)} – ${cname(r.b)}: ${r.length} ${r.color === "gray" ? "any color" : CARD[r.color].label.toLowerCase()}${r.kind === "mountain" ? ", mountain" : r.kind === "ferry" ? `, ferry (${r.wildsRequired} wild)` : ""}${pl ? `, taken by ${pl.name}` : ""}`;
-    routes += `<g class="rt${selRoute === r.id ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
+    routes += `<g class="rt${selShown.has(r.id) ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
   }
   const mp = myPlayer(); const ticketCities = new Set();
   (mp?.tickets || []).concat(mp?.pending || []).forEach(id => { const t = TICKET[id]; if (t) { ticketCities.add(t.from); ticketCities.add(t.to); } });
@@ -829,6 +852,7 @@ function render(){
     wire(); return;
   }
   if (selRoute && s.claims?.[selRoute]) selRoute = null;
+  selShown = new Set(selRoute ? [selRoute, ...siblingsOf(ROUTE[selRoute])].filter(id => !s.claims[id]).sort((x, y) => BOARD.routes.findIndex(r => r.id === x) - BOARD.routes.findIndex(r => r.id === y)) : []);
   const [line, mine] = statusLine(); const wait = pending();
   const myTurn = mi === s.current && (s.phase === "playing" || s.phase === "finalRound");
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
@@ -837,27 +861,30 @@ function render(){
     <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<button id="homeBtn">Leave to menu</button></div></div>`;
   if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><span class="muted">Only in quick test.</span></div>`;
   if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
-  if (netDown && !local) html += `<div class="banner" role="status">Lost the connection to the host. Reconnecting…</div>`;
+  if (netDown && !local) html += `<div class="banner" role="status">${isHost() ? "Lost the connection to the other players. Reconnecting…" : "Lost the connection to the host. Reconnecting…"}</div>`;
   if (err) html += `<div class="banner err" role="alert">${esc(err)}</div>`;
   if (hostSlow && wait) html += hostWaitHTML();
   if (s.phase === "ended") html += resultsHTML();
   html += `<div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">`;
-  // claim panel
+  // claim panel: a tapped double route shows a box for each open side
+  g._opts = {};
   if (selRoute && mp && s.phase !== "ended") {
-    const r = ROUTE[selRoute]; const owner = s.claims[r.id]; const block = owner ? null : claimBlock(s, me, r);
-    const opts = payOptions(r, mp.hand || {}); const cost = trainCost(r);
-    const pts = (R.routeScores[r.length] || 0) + (r.kind === "mountain" ? R.mountainBonusPoints || 0 : 0);
+    const r0 = ROUTE[selRoute], group = [...selShown];
     const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-    let body = `<div class="small muted">Pay ${pl(r.length, r.color === "gray" ? "card" : CARD[r.color].label.toLowerCase() + " card")}${r.color === "gray" ? " of any one color" : ""}${r.kind === "ferry" ? `, including at least ${pl(r.wildsRequired, "wild")}` : ""}. Uses ${pl(cost, "train")}${r.kind === "mountain" ? " (mountain: 1 extra)" : ""}. Scores ${pl(pts, "point")}${r.kind === "mountain" ? ", including the 2-point mountain bonus" : ""}.</div>`;
-    if (owner) body += `<div>Taken by ${esc(s.players.find(p => p.id === owner)?.name)}.</div>`;
-    else if (block) body += `<div class="err">${esc(block)}</div>`;
-    else if (!myTurn) body += `<div class="muted">You can claim it on your turn.</div>`;
-    else if (s.turnStep !== "start") body += `<div class="muted">Finish your draw first.</div>`;
-    else if (mp.trainsLeft < cost) body += `<div class="err">You only have ${mp.trainsLeft} trains left.</div>`;
-    else if (!opts.length) body += `<div class="muted">You don't have the cards for this route yet.</div>`;
-    else body += `<div class="stack" style="gap:6px">${opts.map((o, i) => `<button class="primary payopt" data-i="${i}" ${wait ? "disabled" : ""}>Pay ${Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" + ")}</button>`).join("")}</div>`;
-    html += `<div class="panel claim"><div class="row" style="justify-content:space-between"><h2>${esc(cname(r.a))} – ${esc(cname(r.b))}</h2><button id="closeClaim" aria-label="Close">Close</button></div>${body}</div>`;
-    g._opts = opts;
+    const boxes = group.map(id => {
+      const r = ROUTE[id]; const block = claimBlock(s, me, r);
+      const opts = payOptions(r, mp.hand || {}); const cost = trainCost(r); g._opts[id] = opts;
+      const pts = (R.routeScores[r.length] || 0) + (r.kind === "mountain" ? R.mountainBonusPoints || 0 : 0);
+      let body = `<div class="small muted">Pay ${pl(r.length, r.color === "gray" ? "card" : CARD[r.color].label.toLowerCase() + " card")}${r.color === "gray" ? " of any one color" : ""}${r.kind === "ferry" ? `, including at least ${pl(r.wildsRequired, "wild")}` : ""}. Uses ${pl(cost, "train")}${r.kind === "mountain" ? " (mountain: 1 extra)" : ""}. Scores ${pl(pts, "point")}${r.kind === "mountain" ? ", including the 2-point mountain bonus" : ""}.</div>`;
+      if (block) body += `<div class="err">${esc(block)}</div>`;
+      else if (!myTurn) body += `<div class="muted">You can claim it on your turn.</div>`;
+      else if (s.turnStep !== "start") body += `<div class="muted">Finish your draw first.</div>`;
+      else if (mp.trainsLeft < cost) body += `<div class="err">You only have ${mp.trainsLeft} trains left.</div>`;
+      else if (!opts.length) body += `<div class="muted">You don't have the cards for this route yet.</div>`;
+      else body += `<div class="stack" style="gap:6px">${opts.map((o, i) => `<button class="primary payopt" data-r="${id}" data-i="${i}" ${wait ? "disabled" : ""}>Pay ${Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" + ")}</button>`).join("")}</div>`;
+      return group.length > 1 ? `<div class="claimopt"><h3>${r.color === "gray" ? "Gray route (any color)" : `${CARD[r.color].label} route`}</h3>${body}</div>` : body;
+    }).join("");
+    html += `<div class="panel claim"><div class="row" style="justify-content:space-between"><h2>${esc(cname(r0.a))} – ${esc(cname(r0.b))}</h2><button id="closeClaim" aria-label="Close">Close</button></div>${group.length > 1 ? `<div class="small muted">Double route: either side can be claimed.</div>` : ""}${boxes}</div>`;
   }
   // pending tickets
   const pk = (mp?.pending || []).join(",");
@@ -887,7 +914,7 @@ function render(){
   html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
-  g.innerHTML = html; wire();
+  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended");
   fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
   const le = g.querySelector(".log"); if (le && logAtBottom) le.scrollTop = le.scrollHeight;
@@ -944,44 +971,126 @@ function wire(){
     const kb = $("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
   });
   $("closeClaim") && ($("closeClaim").onclick = () => { selRoute = null; render(); });
-  $("zIn") && ($("zIn").onclick = () => setZoom(Math.min(3, zoom + .5)));
-  $("zOut") && ($("zOut").onclick = () => setZoom(Math.max(1, zoom - .5)));
-  wirePan();
+  $("zIn") && ($("zIn").onclick = () => setZoom(zoom * 1.5));
+  $("zOut") && ($("zOut").onclick = () => setZoom(zoom / 1.5));
+  wireBoard();
   g.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => send({ type:"drawMarket", index:+b.dataset.mk }));
-  g.querySelectorAll(".payopt").forEach(b => b.onclick = () => { const o = g._opts[+b.dataset.i]; const rid = selRoute; selRoute = null; send({ type:"claim", routeId:rid, cards:o }); });
+  g.querySelectorAll(".payopt").forEach(b => b.onclick = () => { const rid = b.dataset.r, o = g._opts[rid][+b.dataset.i]; selRoute = null; send({ type:"claim", routeId:rid, cards:o }); });
   wireRoutes();
   g.querySelectorAll("[data-tk]").forEach(el => {
-    el.addEventListener("mouseenter", () => { hlTicket = el.dataset.tk; updateRings(); });
-    el.addEventListener("mouseleave", () => { hlTicket = null; updateRings(); });
-    el.addEventListener("focus", () => { hlTicket = el.dataset.tk; updateRings(); });
-    el.addEventListener("blur", () => { hlTicket = null; updateRings(); });
+    el.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") { hlTicket = el.dataset.tk; updateRings(); } });
+    el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { hlTicket = null; updateRings(); } });
+    el.addEventListener("click", e => { if (lastPointer !== "mouse" && !e.target.closest("input")) { hlTicket = hlTicket === el.dataset.tk ? null : el.dataset.tk; updateRings(); } });
+    el.addEventListener("focus", () => { if (lastPointer !== "mouse" && Date.now() - lastPointerAt < 800) return; hlTicket = el.dataset.tk; updateRings(); });
+    el.addEventListener("blur", () => { if (lastPointer === "mouse") { hlTicket = null; updateRings(); } });
   });
 }
-function wireRoutes(){ document.querySelectorAll("#game .rt:not(.own)[data-route]").forEach(el => el.addEventListener("click", () => { selRoute = el.dataset.route; render(); })); }
+function wireRoutes(){ /* routes are picked by wireBoard: the closest open route to a tap */ }
 function fitBoard(){
   const box = document.querySelector(".boardbox"); if (!box) return;
   const top = box.getBoundingClientRect().top + window.scrollY, avail = Math.max(320, window.innerHeight - top - 14);
   box.style.setProperty("--maph", avail + "px");
 }
 window.addEventListener("resize", fitBoard);
-function setZoom(z){
-  const bw = document.querySelector(".boardwrap"); if (!bw || z === zoom) return;
-  const cx = (bw.scrollLeft + bw.clientWidth / 2) / bw.scrollWidth, cy = (bw.scrollTop + bw.clientHeight / 2) / bw.scrollHeight;
-  zoom = z; render();
-  const nb = document.querySelector(".boardwrap"); if (!nb) return;
-  nb.scrollLeft = cx * nb.scrollWidth - nb.clientWidth / 2; nb.scrollTop = cy * nb.scrollHeight - nb.clientHeight / 2;
+/* ---------------- Board gestures ----------------
+   One finger (or mouse) drags the map, two fingers pinch to zoom, double-tap zooms in, ctrl+wheel / trackpad pinch zooms.
+   A tap selects the closest open route within a generous distance, so routes don't need to be hit exactly. */
+const ZOOM_MAX = 4;
+function applyZoom(z, ox, oy){
+  // Zoom to z keeping the map point under (ox, oy) — offsets inside the board box — where it is.
+  const bw = document.querySelector(".boardwrap"), svg = bw?.querySelector("svg"); if (!svg) return;
+  z = Math.min(ZOOM_MAX, Math.max(1, z));
+  if (ox == null) { ox = bw.clientWidth / 2; oy = bw.clientHeight / 2; }
+  const k = z / zoom, l = (bw.scrollLeft + ox) * k - ox, t = (bw.scrollTop + oy) * k - oy;
+  zoom = z; svg.style.setProperty("--z", z); bw.classList.toggle("pan", z > 1);
+  bw.scrollLeft = l; bw.scrollTop = t;
 }
-let panMoved = false;
-function wirePan(){
+function setZoom(z){ applyZoom(z); }
+function routeAt(clientX, clientY, pointerType){
+  const svg = document.querySelector(".boardwrap svg"); if (!svg || !state) return null;
+  const rc = svg.getBoundingClientRect(), W = BOARD.canvas.width, scale = rc.width / W;
+  const x = (clientX - rc.left) / scale, y = (clientY - rc.top) / scale;
+  // Reach: 44 screen pixels for a finger, 22 for a mouse, but never less than about one car width on the map.
+  const reach = Math.max((pointerType === "mouse" ? 22 : 44) / scale, pointerType === "mouse" ? 14 : 30);
+  let best = null, bestD = reach * reach;
+  for (const r of BOARD.routes) {
+    if (state.claims?.[r.id]) continue;
+    const P = curve(r).P;
+    for (let i = 1; i < P.length; i++) {
+      const ax = P[i - 1].x, ay = P[i - 1].y, dx = P[i].x - ax, dy = P[i].y - ay, L = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L)), ex = ax + t * dx - x, ey = ay + t * dy - y, d = ex * ex + ey * ey;
+      if (d < bestD) { bestD = d; best = r.id; }
+    }
+  }
+  return best;
+}
+let hovRoute = null;
+function setHover(id){
+  if (id === hovRoute) return;
+  document.querySelectorAll(".rt.hov").forEach(e => e.classList.remove("hov"));
+  hovRoute = id; const bw = document.querySelector(".boardwrap");
+  if (id) document.querySelector(`.rt[data-route="${id}"]`)?.classList.add("hov");
+  bw?.classList.toggle("hov", !!id);
+}
+let lastTap = { t:0, x:0, y:0 };
+function wireBoard(){
   const bw = document.querySelector(".boardwrap"); if (!bw) return;
+  hovRoute = null;
+  const pts = new Map(); let g = null; // gesture: {mode:"pan"|"pinch", ...}
+  const local = (cx, cy) => { const r = bw.getBoundingClientRect(); return [cx - r.left - bw.clientLeft, cy - r.top - bw.clientTop]; };
+  const pinchStart = () => {
+    const [a, b] = [...pts.values()], [mx, my] = local((a.x + b.x) / 2, (a.y + b.y) / 2);
+    g = { mode:"pinch", d0:Math.hypot(a.x - b.x, a.y - b.y) || 1, z0:zoom, ax:(bw.scrollLeft + mx) / zoom, ay:(bw.scrollTop + my) / zoom };
+  };
   bw.addEventListener("pointerdown", e => {
-    if (e.pointerType !== "mouse" || e.button !== 0 || zoom === 1) return;
-    const x0 = e.clientX, y0 = e.clientY, l0 = bw.scrollLeft, t0 = bw.scrollTop; panMoved = false;
-    const move = ev => { const dx = ev.clientX - x0, dy = ev.clientY - y0; if (!panMoved && Math.hypot(dx, dy) < 5) return; panMoved = true; bw.classList.add("dragging"); bw.scrollLeft = l0 - dx; bw.scrollTop = t0 - dy; };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); bw.classList.remove("dragging"); setTimeout(() => { panMoved = false; }, 0); };
-    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target.closest(".zoom")) return;
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    try { bw.setPointerCapture(e.pointerId); } catch {}
+    if (pts.size === 1) g = { mode:"pan", x0:e.clientX, y0:e.clientY, l0:bw.scrollLeft, t0:bw.scrollTop, moved:false, type:e.pointerType };
+    else if (pts.size === 2) pinchStart();
   });
-  bw.addEventListener("click", e => { if (panMoved) { e.stopPropagation(); e.preventDefault(); } }, true);
+  bw.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) { if (e.pointerType === "mouse") setHover(routeAt(e.clientX, e.clientY, "mouse")); return; }
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (!g) return;
+    if (g.mode === "pan") {
+      const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+      if (!g.moved && Math.hypot(dx, dy) < (g.type === "mouse" ? 5 : 10)) return;
+      g.moved = true; bw.classList.add("dragging"); setHover(null);
+      bw.scrollLeft = g.l0 - dx; bw.scrollTop = g.t0 - dy;
+    } else if (g.mode === "pinch" && pts.size >= 2) {
+      const [a, b] = [...pts.values()], [mx, my] = local((a.x + b.x) / 2, (a.y + b.y) / 2);
+      const z = Math.min(ZOOM_MAX, Math.max(1, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0));
+      const svg = bw.querySelector("svg"); zoom = z; svg.style.setProperty("--z", z); bw.classList.toggle("pan", z > 1);
+      bw.scrollLeft = g.ax * z - mx; bw.scrollTop = g.ay * z - my;
+    }
+  });
+  const end = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId); bw.classList.remove("dragging");
+    if (e.type === "pointercancel") { g = pts.size ? g : null; return; }
+    if (g?.mode === "pinch") { if (pts.size === 1) { const [p] = [...pts.values()]; g = { mode:"pan", x0:p.x, y0:p.y, l0:bw.scrollLeft, t0:bw.scrollTop, moved:true, type:"touch" }; } else if (!pts.size) g = null; return; }
+    if (g?.mode === "pan" && !g.moved) {
+      const now = Date.now(), dbl = e.pointerType !== "mouse" && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40;
+      lastTap = dbl ? { t:0, x:0, y:0 } : { t:now, x:e.clientX, y:e.clientY };
+      if (dbl) { const [ox, oy] = local(e.clientX, e.clientY); applyZoom(zoom >= ZOOM_MAX - .01 ? 1 : zoom * 2, ox, oy); }
+      else {
+        const id = routeAt(e.clientX, e.clientY, e.pointerType);
+        if (id !== selRoute) { selRoute = id; render(); }
+      }
+    }
+    if (!pts.size) g = null;
+  };
+  bw.addEventListener("pointerup", end); bw.addEventListener("pointercancel", end);
+  bw.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pts.size) setHover(null); });
+  bw.addEventListener("dblclick", e => { if (lastPointer !== "mouse") return; const [ox, oy] = local(e.clientX, e.clientY); applyZoom(zoom >= ZOOM_MAX - .01 ? 1 : zoom * 2, ox, oy); });
+  bw.addEventListener("wheel", e => {
+    if (!e.ctrlKey) return; // plain wheel scrolls; ctrl+wheel is a trackpad pinch
+    e.preventDefault(); const [ox, oy] = local(e.clientX, e.clientY); applyZoom(zoom * Math.exp(-e.deltaY / 100), ox, oy);
+  }, { passive:false });
+  // Safari's own pinch events: stop them zooming the page while the fingers are on the map.
+  ["gesturestart", "gesturechange"].forEach(t => bw.addEventListener(t, e => e.preventDefault()));
 }
 function updateRings(){ const bw = document.querySelector(".boardwrap svg"); if (!bw) return; const tmp = document.createElement("div"); tmp.innerHTML = boardSVG(); bw.replaceWith(tmp.firstChild); wireRoutes(); }
 
