@@ -53,12 +53,12 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .topbar{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .status{font-family:var(--display);font-size:20px;font-weight:700}
 .status.mine{color:var(--accent)}
-.boardbox{--maph:calc(100vh - 24px);position:relative;width:100%;aspect-ratio:1876/1979;max-height:var(--maph);margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
+.boardbox{--maph:calc(100vh - 24px);position:relative;width:100%;aspect-ratio:1876/1979;max-width:calc(var(--maph) * 1876 / 1979);margin:0 auto;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#bcd3df}
 .boardwrap{position:absolute;inset:0;overflow:auto;cursor:default}
 .boardwrap.pan{cursor:grab}.boardwrap.dragging{cursor:grabbing}
 @supports (height:100dvh){.boardbox{--maph:calc(100dvh - 24px)}}
-/* At zoom 1 the whole map fits the box: full width, or full height when the window is short (water fills the sides). */
-.boardwrap svg{display:block;height:auto;margin:0 auto;width:calc(var(--z) * min(100%, (var(--maph) - 2px) * 1876 / 1979))}
+/* The box keeps the map's shape and is never taller than the window; at zoom 1 the map fills it exactly. */
+.boardwrap svg{display:block;height:auto;width:calc(var(--z) * 100%)}
 .zoom{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}
 .zoom button{padding:4px 10px;background:var(--panel)}
 .rt{cursor:pointer}
