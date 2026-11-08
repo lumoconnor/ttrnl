@@ -805,7 +805,7 @@ function boardSVG(){
     routes += `<g class="rt${selShown.has(r.id) ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
   }
   const mp = myPlayer(); const ticketCities = new Set();
-  (mp?.tickets || []).concat(mp?.pending || []).forEach(id => { const t = TICKET[id]; if (t) { ticketCities.add(t.from); ticketCities.add(t.to); } });
+  (mp?.tickets || []).concat((mp?.pending || []).filter(id => tkSel.has(id)), hlTicket ? [hlTicket] : []).forEach(id => { const t = TICKET[id]; if (t) { ticketCities.add(t.from); ticketCities.add(t.to); } });
   const hi = hlTicket ? new Set([TICKET[hlTicket].from, TICKET[hlTicket].to]) : null;
   const sel = selRoute ? ROUTE[selRoute] : null;
   for (const c of BOARD.cities) {
@@ -1163,7 +1163,7 @@ function toggleKeep(el){
   kept ? tkSel.add(id) : tkSel.delete(id);
   el.classList.toggle("kept", kept); el.setAttribute("aria-pressed", kept);
   const kb = document.getElementById("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
-  hlTicket = id; updateRings();
+  updateRings();
 }
 function toggleTicketFocus(id){
   if (focusTk?.id === id) { const back = focusTk.prev; focusTk = null; hlTicket = lastPointer === "mouse" ? id : null; render(); glideTo(back); return; }
