@@ -135,13 +135,16 @@ button.card{padding:4px 5px}
 /* Cards in flight, face-up refill, hand gain, your-turn pulse */
 .flycard{position:fixed;z-index:60;pointer-events:none;width:44px;height:62px;border-radius:7px;border:2px solid rgba(0,0,0,.35);box-shadow:0 8px 20px #0006;font-size:10px;font-weight:700;padding:4px 3px;transition:transform .55s cubic-bezier(.3,.7,.3,1),opacity .55s ease-in}
 .flycard.back{background:#8fb6d8;border-color:#3d6282}
-@keyframes flipIn{0%{transform:perspective(300px) rotateY(90deg)}100%{transform:perspective(300px) rotateY(0)}}
+.dealcard{position:fixed;z-index:60;pointer-events:none;width:44px;height:62px;perspective:400px;transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.dealcard .dc{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .45s ease-in-out}
+.dealcard .flycard{position:absolute;left:0;top:0;transition:none;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.dealcard .front{transform:rotateY(180deg)}
 @keyframes handGain{0%{box-shadow:0 0 0 0 #fff0}25%{box-shadow:0 0 0 4px #fff,0 0 16px 6px var(--accent)}100%{box-shadow:0 0 0 0 #fff0}}
 .handcards .card{position:relative}
 .gainn{position:absolute;top:-10px;right:-8px;background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;font-size:12px;font-weight:700;animation:scoreFly 1.6s ease-out forwards}
 @keyframes turnPulse{0%,100%{transform:scale(1)}30%{transform:scale(1.06)}60%{transform:scale(1)}}
 .status.pulse{animation:turnPulse .9s ease-in-out 2;transform-origin:left center}
-@media (prefers-reduced-motion:reduce){.flycard{display:none}.status.pulse{animation:none}#moveBanner{transition:none}.ci,.claimglow,.scorefly{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.flycard,.dealcard{display:none}.status.pulse{animation:none}#moveBanner{transition:none}.ci,.claimglow,.scorefly{animation:none!important}}
 /* Destination tickets as cards: a mini map of the island with the two towns, the names, and the points. */
 .tix.cards{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
 .tcard{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 8px;align-items:center;min-height:74px;min-width:0;padding:6px 8px 6px 6px;
@@ -1290,7 +1293,7 @@ function animateClaim(id){
 /* Card movement: a card flies from the pile or face-up slot to whoever took it. */
 const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 let prevHand = null, prevHandOf = null; const handGlow = {}, mkFlip = {};
-function flyCard(from, to, c, delay = 0, land = false){
+function flyCard(from, to, c){
   if (!from || !to || reduceMotion()) return;
   const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if (!a.width || !b.width) return;
   const f = document.createElement("div"); f.className = "flycard" + (c ? ` card c-${c}` : " back");
@@ -1298,18 +1301,26 @@ function flyCard(from, to, c, delay = 0, land = false){
   f.style.left = a.left + a.width / 2 - 22 + "px"; f.style.top = a.top + a.height / 2 - 31 + "px";
   document.body.appendChild(f);
   const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
-  // land: arrive full size and opaque (a refill dealt onto the face-up row), else shrink and fade into the taker.
-  if (land) f.style.transition = "transform .4s cubic-bezier(.3,.7,.3,1)";
-  const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px)${land ? "" : " scale(.7)"}`; if (!land) f.style.opacity = ".15"; }));
-  if (delay) { f.style.visibility = "hidden"; setTimeout(() => { f.style.visibility = ""; go(); }, delay); } else go();
-  if (land) setTimeout(() => { f.style.transition = "transform .18s ease-in"; f.style.transform = `translate(${dx}px,${dy}px) perspective(300px) rotateY(90deg)`; }, delay + 420);
-  setTimeout(() => f.remove(), delay + (land ? 620 : 650));
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px) scale(.7)`; f.style.opacity = ".15"; }));
+  setTimeout(() => f.remove(), 650);
+}
+// A face-up refill: a card leaves the pile face down and turns face up on its way to the slot.
+function dealCard(from, to, c, delay){
+  if (!from || !to || reduceMotion()) return;
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if (!a.width || !b.width) return;
+  const f = document.createElement("div"); f.className = "dealcard";
+  f.innerHTML = `<div class="dc"><div class="flycard back"></div><div class="flycard card c-${c} front" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span></div></div>`;
+  f.style.left = a.left + a.width / 2 - 22 + "px"; f.style.top = a.top + a.height / 2 - 31 + "px"; f.style.visibility = "hidden";
+  document.body.appendChild(f);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  setTimeout(() => { f.style.visibility = ""; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px)`; f.firstChild.style.transform = "rotateY(180deg)"; })); }, delay);
+  setTimeout(() => f.remove(), delay + 480);
 }
 function showDraw(e, gained){
   const L = e.last; if (!L) return;
   const from = L.from === "deck" ? document.getElementById("drawDeck") : document.querySelector(`[data-mk="${L.from}"]`);
   // A face-up card is replaced from the pile: a card back is dealt to the slot, then flips over.
-  if (L.from !== "deck") { mkFlip[L.from] = performance.now() + 820; flyCard(document.getElementById("drawDeck"), from, null, 220, true); }
+  if (L.from !== "deck" && state.market?.[L.from]) { mkFlip[L.from] = performance.now() + 640; dealCard(document.getElementById("drawDeck"), from, state.market[L.from], 160); }
   const mine = e.pid === me && !(local && local.handoff);
   // Your own pile draw: you get to see its colour land in your hand.
   const c = L.c || (mine ? gained.shift() : null);
@@ -1319,8 +1330,12 @@ function showDraw(e, gained){
 }
 function replayGlows(){
   const now = performance.now();
-  for (const [i, t] of Object.entries(mkFlip)) { const age = now - t; if (age > 300) { delete mkFlip[i]; continue; } const el = document.querySelector(`[data-mk="${i}"]`); if (el) el.style.animation = `flipIn .3s ease-out ${(-age / 1000).toFixed(3)}s both`; }
-  // Until the dealt card arrives, the slot stays hidden (flipIn's first frame is edge-on).
+  // Face-up slots being refilled stay hidden until the dealt card arrives.
+  for (const [i, t] of Object.entries(mkFlip)) {
+    if (now >= t) { delete mkFlip[i]; continue; }
+    const el = document.querySelector(`[data-mk="${i}"]`); if (!el) continue;
+    el.style.visibility = "hidden"; setTimeout(() => { const x = document.querySelector(`[data-mk="${i}"]`); if (x) x.style.visibility = ""; }, t - now);
+  }
   for (const [c, t] of Object.entries(handGlow)) {
     const age = now - t; if (age > 1600) { delete handGlow[c]; continue; }
     const el = document.querySelector(`[data-hc="${c}"]`); if (!el) continue;
