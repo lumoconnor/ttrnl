@@ -48,7 +48,9 @@ input[type=text]{border:1px solid var(--line);background:var(--panel);border-rad
 .notice{border-left:4px solid var(--warn);padding:8px 12px;background:var(--soft);border-radius:6px}
 .err{color:var(--accent);font-weight:700}
 /* Game */
-#game{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start;max-width:1500px;margin:0 auto}
+#game{display:grid;grid-template-columns:260px minmax(0,1fr) 340px;gap:14px;align-items:start;max-width:1800px;margin:0 auto}
+/* Narrower screens: players and log drop below the map and side panel. */
+@media (max-width:1200px){#game{grid-template-columns:minmax(0,1fr) 340px}#game .side.left{order:1;grid-column:1/-1;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}}
 @media (max-width:900px){#game{grid-template-columns:minmax(0,1fr)}}
 .topbar{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .status{font-family:var(--display);font-size:20px;font-weight:700}
@@ -168,6 +170,7 @@ button.card{padding:4px 5px}
 .tk .ok{color:var(--ok);font-weight:700;font-size:12px}
 label.tk{cursor:pointer}
 .log{max-height:220px;overflow:auto;font-size:13px;display:grid;gap:3px}
+.side.left .log{max-height:min(460px,50vh)}
 .log div{border-bottom:1px solid var(--line);padding-bottom:3px}
 .claim{border:2px solid var(--accent)}
 .banner{grid-column:1/-1;padding:10px 14px;border-radius:10px;background:var(--soft);border:1px solid var(--line)}
@@ -936,7 +939,7 @@ function render(){
   if (err) html += `<div class="banner err" role="alert">${esc(err)}</div>`;
   if (hostSlow && wait) html += hostWaitHTML();
   if (s.phase === "ended") html += resultsHTML();
-  html += `<div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">`;
+  html += `<!--LEFT--><div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">`;
   // claim panel: a tapped double route shows a box for each open side
   g._opts = {};
   if (selRoute && mp && s.phase !== "ended") {
@@ -982,9 +985,10 @@ function render(){
     html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
-  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
+  let left = `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
-  html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
+  left += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div>`;
+  html += `</div>`; html = html.replace("<!--LEFT-->", `<div class="side left">${left}</div>`);
   g.innerHTML = html; wire(); keepAwake(s.phase !== "ended");
   fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
