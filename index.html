@@ -751,10 +751,17 @@ async function send(action, asId){
   // A double click or double tap would otherwise take both cards at once, since the host's own moves apply instantly.
   if (action.type === "drawDeck" || action.type === "drawMarket") { const t = Date.now(); if (t - lastDrawAt < 200) return; lastDrawAt = t; }
   if (local) {
+    if (local.holding) return;
     const s = structuredClone(state);
     try { apply(s, asId || me, action); state = s; sendError = null; } catch (e) { sendError = e.message; }
-    const prev = me; me = actingId(state); if (state.phase === "ended") local.viewer = local.viewer || prev;
-    render(); return;
+    const prev = me, next = actingId(state); if (state.phase === "ended") local.viewer = local.viewer || prev;
+    // Without hand-offs, stay on the player who just moved for a moment so their card or claim lands in their own view.
+    if (next !== prev && !local.handoff && state.phase !== "ended" && !sendError) {
+      local.holding = true; render();
+      setTimeout(() => { if (!local) return; local.holding = false; me = actingId(state); render(); }, 1100);
+      return;
+    }
+    me = next; render(); return;
   }
   const seq = Math.max(Date.now(), lastSent + 1, (state?.processed?.[me] || 0) + 1);
   lastSent = seq; sendError = null; render();
@@ -1281,8 +1288,8 @@ function animateClaim(id){
 }
 /* Card movement: a card flies from the pile or face-up slot to whoever took it. */
 const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-let prevHand = null; const handGlow = {}, mkFlip = {};
-function flyCard(from, to, c){
+let prevHand = null, prevHandOf = null; const handGlow = {}, mkFlip = {};
+function flyCard(from, to, c, delay = 0, land = false){
   if (!from || !to || reduceMotion()) return;
   const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if (!a.width || !b.width) return;
   const f = document.createElement("div"); f.className = "flycard" + (c ? ` card c-${c}` : " back");
@@ -1290,13 +1297,18 @@ function flyCard(from, to, c){
   f.style.left = a.left + a.width / 2 - 22 + "px"; f.style.top = a.top + a.height / 2 - 31 + "px";
   document.body.appendChild(f);
   const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
-  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px) scale(.7)`; f.style.opacity = ".15"; }));
-  setTimeout(() => f.remove(), 650);
+  // land: arrive full size and opaque (a refill dealt onto the face-up row), else shrink and fade into the taker.
+  if (land) f.style.transition = "transform .4s cubic-bezier(.3,.7,.3,1)";
+  const go = () => requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px)${land ? "" : " scale(.7)"}`; if (!land) f.style.opacity = ".15"; }));
+  if (delay) { f.style.visibility = "hidden"; setTimeout(() => { f.style.visibility = ""; go(); }, delay); } else go();
+  if (land) setTimeout(() => { f.style.transition = "transform .18s ease-in"; f.style.transform = `translate(${dx}px,${dy}px) perspective(300px) rotateY(90deg)`; }, delay + 420);
+  setTimeout(() => f.remove(), delay + (land ? 620 : 650));
 }
 function showDraw(e, gained){
   const L = e.last; if (!L) return;
   const from = L.from === "deck" ? document.getElementById("drawDeck") : document.querySelector(`[data-mk="${L.from}"]`);
-  if (L.from !== "deck") mkFlip[L.from] = performance.now();
+  // A face-up card is replaced from the pile: a card back is dealt to the slot, then flips over.
+  if (L.from !== "deck") { mkFlip[L.from] = performance.now() + 820; flyCard(document.getElementById("drawDeck"), from, null, 220, true); }
   const mine = e.pid === me && !(local && local.handoff);
   // Your own pile draw: you get to see its colour land in your hand.
   const c = L.c || (mine ? gained.shift() : null);
@@ -1306,12 +1318,12 @@ function showDraw(e, gained){
 }
 function replayGlows(){
   const now = performance.now();
-  for (const [i, t] of Object.entries(mkFlip)) { const age = now - t; if (age > 450) { delete mkFlip[i]; continue; } const el = document.querySelector(`[data-mk="${i}"]`); if (el) el.style.animation = `flipIn .45s ease-out ${(-age / 1000).toFixed(3)}s both`; }
+  for (const [i, t] of Object.entries(mkFlip)) { const age = now - t; if (age > 300) { delete mkFlip[i]; continue; } const el = document.querySelector(`[data-mk="${i}"]`); if (el) el.style.animation = `flipIn .3s ease-out ${(-age / 1000).toFixed(3)}s both`; }
+  // Until the dealt card arrives, the slot stays hidden (flipIn's first frame is edge-on).
   for (const [c, t] of Object.entries(handGlow)) {
     const age = now - t; if (age > 1600) { delete handGlow[c]; continue; }
     const el = document.querySelector(`[data-hc="${c}"]`); if (!el) continue;
     el.style.animation = `handGain 1.2s ease-out ${(-age / 1000).toFixed(3)}s both`;
-    const n = document.createElement("span"); n.className = "gainn"; n.textContent = "+1"; n.style.animationDelay = `${(-age / 1000).toFixed(3)}s`; el.appendChild(n);
   }
 }
 /* Your turn: pulse the status line and, when playing online, a soft chime. */
@@ -1334,8 +1346,8 @@ function afterRender(){
   const sb = document.getElementById("soundBtn"); if (sb) sb.onclick = () => { store.set("nfr-sound", soundOn() ? "off" : "on"); render(); };
   if (evSeen == null) { evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); prevHand = hand; return; }
   // Colours you gained since the last render, for your own pile draws.
-  const gained = []; for (const [c, n] of Object.entries(hand)) for (let k = (prevHand?.[c] || 0); k < n; k++) gained.push(c);
-  prevHand = hand;
+  const gained = []; if (prevHandOf === me) for (const [c, n] of Object.entries(hand)) for (let k = (prevHand?.[c] || 0); k < n; k++) gained.push(c);
+  prevHand = hand; prevHandOf = me;
   for (const e of (s.events || []).filter(e => e.n > evSeen)) {
     const t = evText(e), pl = s.players.find(p => p.id === e.pid);
     if (t && !(e.type === "kept" && e.initial)) banner(e.type === "draw" ? `draw-${e.pid}-${e.n - (e.face.length + e.blind) + 1}` : `ev-${e.n}`, t[0], t[1], SEAT_COLORS[pl?.color ?? 0][1]);
