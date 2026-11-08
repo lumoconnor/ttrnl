@@ -132,7 +132,16 @@ button.card{padding:4px 5px}
 .score{position:relative}
 .scorefly{position:absolute;right:0;top:-4px;font-size:13px;font-weight:700;color:var(--ok);animation:scoreFly 1.6s ease-out forwards;pointer-events:none}
 @keyframes scoreFly{0%{transform:translateY(6px);opacity:0}15%{opacity:1}100%{transform:translateY(-22px);opacity:0}}
-@media (prefers-reduced-motion:reduce){#moveBanner{transition:none}.ci,.claimglow,.scorefly{animation:none!important}}
+/* Cards in flight, face-up refill, hand gain, your-turn pulse */
+.flycard{position:fixed;z-index:60;pointer-events:none;width:44px;height:62px;border-radius:7px;border:2px solid rgba(0,0,0,.35);box-shadow:0 8px 20px #0006;font-size:10px;font-weight:700;padding:4px 3px;transition:transform .55s cubic-bezier(.3,.7,.3,1),opacity .55s ease-in}
+.flycard.back{background:#8fb6d8;border-color:#3d6282}
+@keyframes flipIn{0%{transform:perspective(300px) rotateY(90deg)}100%{transform:perspective(300px) rotateY(0)}}
+@keyframes handGain{0%{box-shadow:0 0 0 0 #fff0}25%{box-shadow:0 0 0 4px #fff,0 0 16px 6px var(--accent)}100%{box-shadow:0 0 0 0 #fff0}}
+.handcards .card{position:relative}
+.gainn{position:absolute;top:-10px;right:-8px;background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;font-size:12px;font-weight:700;animation:scoreFly 1.6s ease-out forwards}
+@keyframes turnPulse{0%,100%{transform:scale(1)}30%{transform:scale(1.06)}60%{transform:scale(1)}}
+.status.pulse{animation:turnPulse .9s ease-in-out 2;transform-origin:left center}
+@media (prefers-reduced-motion:reduce){.flycard{display:none}.status.pulse{animation:none}#moveBanner{transition:none}.ci,.claimglow,.scorefly{animation:none!important}}
 /* Destination tickets as cards: a mini map of the island with the two towns, the names, and the points. */
 .tix.cards{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
 .tcard{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 8px;align-items:center;min-height:74px;min-width:0;padding:6px 8px 6px 6px;
@@ -235,7 +244,7 @@ function addEv(s, e){
   s.evN = (s.evN || 0) + 1; e.n = s.evN;
   const list = s.events || (s.events = []);
   const last = list[list.length - 1];
-  if (e.type === "draw" && last?.type === "draw" && last.pid === e.pid && last.open) { last.face.push(...e.face); last.blind += e.blind; last.n = e.n; last.open = e.open; return; }
+  if (e.type === "draw" && last?.type === "draw" && last.pid === e.pid && last.open) { last.face.push(...e.face); last.blind += e.blind; last.n = e.n; last.open = e.open; last.last = e.last; return; }
   list.push(e); if (list.length > 40) list.splice(0, list.length - 40);
 }
 function addLog(s, msg){ s.log.push(msg); if (s.log.length > 80) s.log.splice(0, s.log.length - 80); }
@@ -332,7 +341,7 @@ function apply(s, pid, a){
     case "drawDeck": {
       if (s.turnStep === "choosingTickets") fail("Choose your tickets first.");
       if (s.deck.length + s.discard.length === 0) fail("The draw pile is empty.");
-      give(drawCard(s)); addEv(s, { type:"draw", pid, face:[], blind:1, open:s.turnStep === "start" });
+      give(drawCard(s)); addEv(s, { type:"draw", pid, face:[], blind:1, open:s.turnStep === "start", last:{ from:"deck" } });
       if (s.turnStep === "start") { s.turnStep = "drewOne"; if (!canDrawAny(s)) { addLog(s, `${p.name} drew 1 card.`); endTurn(s); } }
       else { addLog(s, `${p.name} drew 2 cards.`); endTurn(s); }
       return;
@@ -342,7 +351,7 @@ function apply(s, pid, a){
       const i = a.index | 0, c = s.market[i];
       if (c == null) fail("There's no card there.");
       if (c === "wild" && s.turnStep === "drewOne") fail("A face-up wild can only be taken as your first card.");
-      give(c); s.market[i] = drawCard(s); fillMarket(s); addEv(s, { type:"draw", pid, face:[c], blind:0, open:!(c === "wild" || s.turnStep === "drewOne") });
+      give(c); s.market[i] = drawCard(s); fillMarket(s); addEv(s, { type:"draw", pid, face:[c], blind:0, open:!(c === "wild" || s.turnStep === "drewOne"), last:{ from:i, c } });
       const label = CARD[c].label.toLowerCase();
       if (c === "wild" || s.turnStep === "drewOne") { addLog(s, `${p.name} took a face-up ${label}${s.turnStep === "drewOne" ? " as a second card" : ""}.`); endTurn(s); }
       else { s.turnStep = "drewOne"; s.firstPick = label; if (!s.market.some(x => x && x !== "wild") && s.deck.length + s.discard.length === 0) { addLog(s, `${p.name} took a face-up ${label}.`); endTurn(s); } }
@@ -910,7 +919,7 @@ function render(){
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
   const conn = mp ? connectedFn(ownedRoutes(s, me)) : null;
   let html = `<div class="topbar"><div class="stack" style="gap:2px"><div class="small muted">Newfoundland Rails · ${local ? (local.test ? "quick test" : "pass and play") + (mp && s.phase !== "ended" ? ` · playing as <b>${esc(mp.name)}</b>` : "") : `game <b>${esc(code)}</b>`}</div><div class="status ${mine ? "mine" : ""}" aria-live="polite">${esc(line)}${wait ? ' <span class="muted small">sending…</span>' : ""}</div></div>
-    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<button id="homeBtn">Leave to menu</button></div></div>`;
+    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}${local ? "" : `<button id="soundBtn" aria-pressed="${soundOn()}" title="Chime when it's your turn">Sound ${soundOn() ? "on" : "off"}</button>`}<button id="homeBtn">Leave to menu</button></div></div>`;
   if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><span class="muted">Only in quick test.</span></div>`;
   if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
   if (netDown && !local) html += `<div class="banner" role="status">${isHost() ? "Lost the connection to the other players. Reconnecting…" : "Lost the connection to the host. Reconnecting…"}</div>`;
@@ -956,14 +965,14 @@ function render(){
   // hand
   if (mp?.hand) {
     const hand = CARD_IDS.filter(c => mp.hand[c]);
-    html += `<div class="panel"><h3>Your hand · ${handCount(mp)} cards · ${mp.trainsLeft} trains</h3><div class="cards">${hand.length ? hand.map(c => `<div class="card c-${c}" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span><span class="n">${mp.hand[c]}</span></div>`).join("") : '<span class="muted small">No cards yet.</span>'}</div><div class="small muted">Tap a route on the map to claim it.</div></div>`;
+    html += `<div class="panel"><h3>Your hand · ${handCount(mp)} cards · ${mp.trainsLeft} trains</h3><div class="cards handcards">${hand.length ? hand.map(c => `<div class="card c-${c}" data-hc="${c}" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span><span class="n">${mp.hand[c]}</span></div>`).join("") : '<span class="muted small">No cards yet.</span>'}</div><div class="small muted">Tap a route on the map to claim it.</div></div>`;
   }
   // tickets
   if (mp?.tickets?.length) {
     html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
-  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
+  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
   g.innerHTML = html; wire(); keepAwake(s.phase !== "ended"); afterRender();
@@ -1270,14 +1279,73 @@ function animateClaim(id){
   setTimeout(() => { delete claimAnim[id]; }, total);
   updateRings();
 }
+/* Card movement: a card flies from the pile or face-up slot to whoever took it. */
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+let prevHand = null; const handGlow = {}, mkFlip = {};
+function flyCard(from, to, c){
+  if (!from || !to || reduceMotion()) return;
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if (!a.width || !b.width) return;
+  const f = document.createElement("div"); f.className = "flycard" + (c ? ` card c-${c}` : " back");
+  if (c) { f.style.background = CARD[c].hex; f.innerHTML = `<span class="lbl">${esc(CARD[c].label)}</span>`; }
+  f.style.left = a.left + a.width / 2 - 22 + "px"; f.style.top = a.top + a.height / 2 - 31 + "px";
+  document.body.appendChild(f);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translate(${dx}px,${dy}px) scale(.7)`; f.style.opacity = ".15"; }));
+  setTimeout(() => f.remove(), 650);
+}
+function showDraw(e, gained){
+  const L = e.last; if (!L) return;
+  const from = L.from === "deck" ? document.getElementById("drawDeck") : document.querySelector(`[data-mk="${L.from}"]`);
+  if (L.from !== "deck") mkFlip[L.from] = performance.now();
+  const mine = e.pid === me && !(local && local.handoff);
+  // Your own pile draw: you get to see its colour land in your hand.
+  const c = L.c || (mine ? gained.shift() : null);
+  if (mine && c) handGlow[c] = performance.now();
+  const to = mine ? (document.querySelector(`[data-hc="${c}"]`) || document.querySelector(".handcards")) : document.querySelector(`.pl[data-pid="${CSS.escape(e.pid)}"] .sw`);
+  flyCard(from, to, c);
+}
+function replayGlows(){
+  const now = performance.now();
+  for (const [i, t] of Object.entries(mkFlip)) { const age = now - t; if (age > 450) { delete mkFlip[i]; continue; } const el = document.querySelector(`[data-mk="${i}"]`); if (el) el.style.animation = `flipIn .45s ease-out ${(-age / 1000).toFixed(3)}s both`; }
+  for (const [c, t] of Object.entries(handGlow)) {
+    const age = now - t; if (age > 1600) { delete handGlow[c]; continue; }
+    const el = document.querySelector(`[data-hc="${c}"]`); if (!el) continue;
+    el.style.animation = `handGain 1.2s ease-out ${(-age / 1000).toFixed(3)}s both`;
+    const n = document.createElement("span"); n.className = "gainn"; n.textContent = "+1"; n.style.animationDelay = `${(-age / 1000).toFixed(3)}s`; el.appendChild(n);
+  }
+}
+/* Your turn: pulse the status line and, when playing online, a soft chime. */
+const soundOn = () => store.get("nfr-sound") !== "off";
+let audioCtx = null;
+addEventListener("pointerdown", () => { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch {} }, true);
+function chime(){
+  if (!audioCtx || !soundOn()) return;
+  const t = audioCtx.currentTime;
+  [[660, 0], [880, .14]].forEach(([hz, d]) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = "sine"; o.frequency.value = hz; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(.12, t + d + .02); g.gain.exponentialRampToValueAtTime(.001, t + d + .45); o.connect(g).connect(audioCtx.destination); o.start(t + d); o.stop(t + d + .5); });
+}
+let turnPulseAt = 0;
+function yourTurn(){
+  turnPulseAt = performance.now();
+  if (!local) { chime(); try { navigator.vibrate?.(120); } catch {} }
+}
 function afterRender(){
   const s = state; if (!s) return;
-  if (evSeen == null) { evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); return; }
+  const mp = s.players.find(p => p.id === me), hand = { ...(mp?.hand || {}) };
+  const sb = document.getElementById("soundBtn"); if (sb) sb.onclick = () => { store.set("nfr-sound", soundOn() ? "off" : "on"); render(); };
+  if (evSeen == null) { evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); prevHand = hand; return; }
+  // Colours you gained since the last render, for your own pile draws.
+  const gained = []; for (const [c, n] of Object.entries(hand)) for (let k = (prevHand?.[c] || 0); k < n; k++) gained.push(c);
+  prevHand = hand;
   for (const e of (s.events || []).filter(e => e.n > evSeen)) {
     const t = evText(e), pl = s.players.find(p => p.id === e.pid);
     if (t && !(e.type === "kept" && e.initial)) banner(e.type === "draw" ? `draw-${e.pid}-${e.n - (e.face.length + e.blind) + 1}` : `ev-${e.n}`, t[0], t[1], SEAT_COLORS[pl?.color ?? 0][1]);
     if (e.type === "claim") animateClaim(e.routeId);
+    if (e.type === "draw") showDraw(e, gained);
+    if (e.type === "turn" && e.pid === me && s.phase !== "ended") yourTurn();
   }
+  replayGlows();
+  const st = document.querySelector(".status.mine"); const pa = performance.now() - turnPulseAt; if (st && pa < 1800) { st.classList.add("pulse"); st.style.animationDelay = `${(-pa / 1000).toFixed(3)}s`; }
+  document.title = !local && s.players[s.current]?.id === me && s.phase !== "ended" && s.phase !== "initialTickets" ? "Your turn · Newfoundland Rails" : "Newfoundland Rails";
   evSeen = s.evN || 0;
   for (const p of s.players) {
     const d = p.score - (prevScores[p.id] ?? p.score);
