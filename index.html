@@ -118,15 +118,16 @@ button.card{padding:4px 5px}
 .tix{display:grid;gap:6px}
 /* Destination tickets as cards: a mini map of the island with the two towns, the names, and the points. */
 .tix.cards{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
-.tcard{position:relative;display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:center;min-height:74px;padding:6px 8px 6px 6px;
-  background:#f6edd4;color:#2b2111;border:2px solid #8a6e3a;border-radius:10px;box-shadow:0 2px 0 #d8c79c,0 2px 0 1px #8a6e3a;cursor:pointer;text-align:left;transition:transform .12s}
+.tcard{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 8px;align-items:center;min-height:74px;min-width:0;padding:6px 8px 6px 6px;
+  background:#f6edd4;color:#2b2111;border:2px solid #8a6e3a;border-radius:10px;cursor:pointer;text-align:left;transition:transform .12s}
 @media (hover:hover){.tcard:hover{transform:translateY(-2px)}}
-.tcard .tmap{width:52px;height:55px;display:block;border-radius:6px;background:#cfe0e8}
-.tcard .tnames{display:grid;gap:1px;font-family:var(--display);font-weight:700;font-size:13px;line-height:1.15;padding-right:22px}
+.tcard .tmap{width:52px;height:58px;display:block;border-radius:6px;background:#cfe0e8}
+.tcard .tnames{display:grid;gap:1px;font-family:var(--display);font-weight:500;font-size:14px;line-height:1.15;min-width:0;overflow-wrap:break-word;hyphens:auto}
 .tcard .tnames .to{font-weight:500;color:#5b4a2c}
-.tcard .tpts{position:absolute;top:-8px;right:-8px;min-width:26px;height:26px;padding:0 4px;border-radius:13px;display:grid;place-items:center;
-  background:#c4472c;color:#fff;border:2px solid #f6edd4;font-family:var(--display);font-weight:700;font-size:14px}
-.tcard.done{border-color:#2c7d49;box-shadow:0 2px 0 #b9d8bf,0 2px 0 1px #2c7d49}
+.tcard .tleft{display:grid;gap:3px;justify-items:center}
+.tcard .tpts{display:flex;align-items:baseline;gap:2px;line-height:1;color:#8a3b26;font-family:var(--display);font-weight:700;font-size:18px}
+.tcard .tpts small{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a6e3a}
+.tcard.done{border-color:#2c7d49}
 .tcard .tok{grid-column:1/-1;font-size:11px;font-weight:700;color:#2c7d49;margin-top:-2px}
 .tcard.on{outline:3px solid var(--accent);outline-offset:2px}
 .tcard .keepbox{grid-column:1/-1;display:flex;align-items:center;gap:6px;justify-self:stretch;margin:0;padding:5px 8px;border-radius:8px;background:#ede0bb;font-size:13px;font-weight:700;cursor:pointer}
@@ -1155,9 +1156,9 @@ function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
   const mx = (A.x + B.x) / 2 - (B.y - A.y) * .18, my = (A.y + B.y) / 2 + (B.x - A.x) * .18;
   return `<div class="tcard${ok ? " done" : ""}${on ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
-    <svg class="tmap" viewBox="60 40 1760 1860" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}Q${mx} ${my} ${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
+    <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}Q${mx} ${my} ${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
+<span class="tpts">${t.points}<small>pts</small></span></span>
     <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
-    <span class="tpts">${t.points}</span>
     ${ok ? `<span class="tok">✓ Connected</span>` : ""}
     ${keep !== null ? `<label class="keepbox"><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${keep ? " checked" : ""}> Keep</label>` : ""}
   </div>`;
