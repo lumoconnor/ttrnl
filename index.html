@@ -811,10 +811,12 @@ function boardSVG(){
   for (const c of BOARD.cities) {
     const marks = c.marks || [[c.x, c.y]];
     for (const [x, y] of marks) {
-      if (ticketCities.has(c.id) && !c.offMap) rings += `<circle cx="${x}" cy="${y}" r="${hi?.has(c.id) ? 27 : 20}" fill="none" stroke="${hi?.has(c.id) ? "#e8431a" : "#1d6fd1"}" stroke-width="${hi?.has(c.id) ? 6 : 4}"/>`;
+      // Ticket towns: a filled halo (50% of the colour) and a coloured centre dot; red for the highlighted ticket, blue for the others.
+      const tcol = ticketCities.has(c.id) ? (hi?.has(c.id) ? "#e8431a" : "#1d6fd1") : null;
+      if (tcol && !c.offMap) rings += `<circle cx="${x}" cy="${y}" r="${hi?.has(c.id) ? 27 : 22}" fill="${tcol}" fill-opacity=".5" stroke="${tcol}" stroke-width="${hi?.has(c.id) ? 6 : 4}"/>`;
       if (c.offMap) continue;
       const on = sel && (sel.a === c.id || sel.b === c.id);
-      cities += `<circle cx="${x}" cy="${y}" r="${on ? 12 : 10}" fill="${on ? "#e8431a" : "#2b2b2b"}" stroke="#fff" stroke-width="3"/>`;
+      cities += `<circle cx="${x}" cy="${y}" r="${on ? 12 : 10}" fill="${on ? "#e8431a" : tcol || "#2b2b2b"}" stroke="#fff" stroke-width="3"/>`;
       const pos = LABEL_POS[c.id] || "r", ps = Array.isArray(pos) ? "" : pos;
       let dx = ps.includes("r") ? 16 : ps.includes("l") ? -16 : 0, dy = ps.startsWith("a") ? -18 : ps.startsWith("b") ? 34 : 9;
       let anchor = ps.includes("r") ? "start" : ps.includes("l") ? "end" : "middle";
