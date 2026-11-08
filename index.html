@@ -152,6 +152,12 @@ button.card{padding:4px 5px}
 .tcard{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 8px;align-items:center;min-height:74px;min-width:0;padding:6px 8px 6px 6px;
   background:#f6edd4;color:#2b2111;border:2px solid #8a6e3a;border-radius:10px;cursor:pointer;text-align:left;transition:transform .12s}
 @media (hover:hover){.tcard:hover{transform:translateY(-2px)}}
+/* Offered tickets arrive face down and turn over one at a time. */
+.tcard.deal{animation:tkTurn .5s ease-in-out var(--dl) backwards}
+.tcard.deal::after{content:"";position:absolute;inset:-2px;border-radius:10px;border:2px solid #8a6e3a;background:#f6edd4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 28'%3E%3Cpath d='M6 21C14 4 30 26 40 7' fill='none' stroke='%238a6e3a' stroke-width='2.4' stroke-dasharray='4 3'/%3E%3Ccircle cx='6' cy='21' r='4' fill='%23c4472c'/%3E%3Ccircle cx='40' cy='7' r='4' fill='%23c4472c'/%3E%3C/svg%3E") center/64px no-repeat;animation:tkBack .5s linear var(--dl) both;pointer-events:none}
+@keyframes tkTurn{0%{transform:perspective(600px) rotateY(180deg)}100%{transform:perspective(600px) rotateY(0)}}
+@keyframes tkBack{0%,50%{opacity:1}50.1%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tcard.deal,.tcard.deal::after{animation:none}}
 .tcard .tmap{width:52px;height:58px;display:block;border-radius:6px;background:#cfe0e8}
 .tcard .tnames{display:grid;align-self:start;align-content:start;padding-top:2px;gap:1px;font-family:var(--display);font-weight:500;font-size:14px;line-height:1.15;min-width:0;overflow-wrap:break-word;hyphens:auto}
 .tcard .tnames .to{font-weight:500;color:#5b4a2c}
@@ -965,7 +971,7 @@ function render(){
   if (pk !== tkKey) { tkKey = pk; tkSel = new Set(); }
   if (mp?.pending?.length) {
     const min = s.phase === "initialTickets" ? R.ticketsKeepStart : R.ticketsKeep;
-    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix cards">${mp.pending.map(id => ticketCard(id, { keep:tkSel.has(id) })).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
+    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix cards">${dealTickets(mp.pending.map(id => ticketCard(id, { keep:tkSel.has(id) })), mp.pending)}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
   }
   // market
   if (s.phase !== "ended") {
@@ -1205,6 +1211,13 @@ function ticketView(id){
   const s1 = bw.clientWidth / BOARD.canvas.width;
   const z = Math.max(1, Math.min(ZOOM_MAX, bw.clientWidth / ((x1 - x0) * s1), bw.clientHeight / ((y1 - y0) * s1)));
   return { z, cx:(x0 + x1) / 2, cy:(y0 + y1) / 2 };
+}
+let tkDeal = { key:null, t:0 };
+// Turn the offered tickets over one at a time; the timing is kept across re-renders.
+function dealTickets(cards, ids){
+  const key = ids.join(); if (tkDeal.key !== key) tkDeal = { key, t:performance.now() };
+  const age = (performance.now() - tkDeal.t) / 1000;
+  return cards.map((h, i) => { const dl = .25 + i * .3 - age; return dl > -.6 ? h.replace('<div class="tcard', `<div style="--dl:${dl.toFixed(3)}s" class="deal tcard`) : h; }).join("");
 }
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
