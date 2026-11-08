@@ -1154,9 +1154,8 @@ function ticketView(id){
 }
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
-  const mx = (A.x + B.x) / 2 - (B.y - A.y) * .18, my = (A.y + B.y) / 2 + (B.x - A.x) * .18;
   return `<div class="tcard${ok ? " done" : ""}${on ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
-    <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}Q${mx} ${my} ${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
+    <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}L${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
 <span class="tpts">${t.points}<small>pts</small></span></span>
     <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
     ${ok ? `<span class="tok">✓ Connected</span>` : ""}
