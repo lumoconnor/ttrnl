@@ -116,6 +116,23 @@ button.card{padding:4px 5px}
 .tixrow{display:flex;gap:16px;align-items:center;margin-top:14px}
 
 .tix{display:grid;gap:6px}
+/* Destination tickets as cards: a mini map of the island with the two towns, the names, and the points. */
+.tix.cards{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
+.tcard{position:relative;display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:center;min-height:74px;padding:6px 8px 6px 6px;
+  background:#f6edd4;color:#2b2111;border:2px solid #8a6e3a;border-radius:10px;box-shadow:0 2px 0 #d8c79c,0 2px 0 1px #8a6e3a;cursor:pointer;text-align:left;transition:transform .12s}
+@media (hover:hover){.tcard:hover{transform:translateY(-2px)}}
+.tcard .tmap{width:52px;height:55px;display:block;border-radius:6px;background:#cfe0e8}
+.tcard .tnames{display:grid;gap:1px;font-family:var(--display);font-weight:700;font-size:13px;line-height:1.15;padding-right:22px}
+.tcard .tnames .to{font-weight:500;color:#5b4a2c}
+.tcard .tpts{position:absolute;top:-8px;right:-8px;min-width:26px;height:26px;padding:0 4px;border-radius:13px;display:grid;place-items:center;
+  background:#c4472c;color:#fff;border:2px solid #f6edd4;font-family:var(--display);font-weight:700;font-size:14px}
+.tcard.done{border-color:#2c7d49;box-shadow:0 2px 0 #b9d8bf,0 2px 0 1px #2c7d49}
+.tcard .tok{grid-column:1/-1;font-size:11px;font-weight:700;color:#2c7d49;margin-top:-2px}
+.tcard.on{outline:3px solid var(--accent);outline-offset:2px}
+.tcard .keepbox{grid-column:1/-1;display:flex;align-items:center;gap:6px;justify-self:stretch;margin:0;padding:5px 8px;border-radius:8px;background:#ede0bb;font-size:13px;font-weight:700;cursor:pointer}
+.tcard .keepbox input{width:18px;height:18px;margin:0}
+.tcard.kept{border-color:#2c7d49;box-shadow:0 0 0 2px #2c7d49}
+.tcard.kept .keepbox{background:#2c7d49;color:#fff}
 .tk{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .tk.done{border-color:var(--ok)}
 .tk[data-tk]{cursor:pointer}
@@ -896,7 +913,7 @@ function render(){
   if (pk !== tkKey) { tkKey = pk; tkSel = new Set(); }
   if (mp?.pending?.length) {
     const min = s.phase === "initialTickets" ? R.ticketsKeepStart : R.ticketsKeep;
-    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix">${mp.pending.map(id => { const t = TICKET[id]; return `<div class="tk${focusTk?.id === id ? " on" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${focusTk?.id === id}"><span class="row" style="gap:4px;flex-wrap:nowrap"><label class="keepbox" title="Keep this ticket"><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${tkSel.has(id) ? " checked" : ""} aria-label="Keep ${esc(cname(t.from))} – ${esc(cname(t.to))}"></label>${esc(cname(t.from))} – ${esc(cname(t.to))}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
+    html += `<div class="panel claim"><h2>Choose tickets</h2><div class="small muted">Keep at least ${min}. Unfinished tickets cost their points at the end.</div><div class="tix cards">${mp.pending.map(id => ticketCard(id, { keep:tkSel.has(id) })).join("")}</div><button class="primary" id="keepBtn" data-min="${Math.min(min, mp.pending.length)}" ${wait || tkSel.size < Math.min(min, mp.pending.length) ? "disabled" : ""}>Keep selected</button></div>`;
   }
   // market
   if (s.phase !== "ended") {
@@ -913,7 +930,7 @@ function render(){
   }
   // tickets
   if (mp?.tickets?.length) {
-    html += `<div class="panel"><h3>Your tickets</h3><div class="tix">${mp.tickets.map(id => { const t = TICKET[id]; const ok = conn(t.from, t.to); return `<div class="tk${ok ? " done" : ""}${focusTk?.id === id ? " on" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${focusTk?.id === id}"><span>${esc(cname(t.from))} – ${esc(cname(t.to))} ${ok ? '<span class="ok">Connected</span>' : ""}</span><span class="pts">${t.points}</span></div>`; }).join("")}</div></div>`;
+    html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
   html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score">${p.score}</span></div>`).join("")}</div>
@@ -972,7 +989,7 @@ function wire(){
   $("passBtn") && ($("passBtn").onclick = () => send({ type:"pass" }));
   $("keepBtn") && ($("keepBtn").onclick = () => { focusTk = null; hlTicket = null; send({ type:"keepTickets", ids:[...tkSel] }); });
   g.querySelectorAll(".keep").forEach(cb => cb.onchange = () => {
-    cb.checked ? tkSel.add(cb.value) : tkSel.delete(cb.value);
+    cb.checked ? tkSel.add(cb.value) : tkSel.delete(cb.value); cb.closest(".tcard")?.classList.toggle("kept", cb.checked);
     const kb = $("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
   });
   $("closeClaim") && ($("closeClaim").onclick = () => { selRoute = null; render(); });
@@ -1134,6 +1151,17 @@ function ticketView(id){
   const z = Math.max(1, Math.min(ZOOM_MAX, bw.clientWidth / ((x1 - x0) * s1), bw.clientHeight / ((y1 - y0) * s1)));
   return { z, cx:(x0 + x1) / 2, cy:(y0 + y1) / 2 };
 }
+function ticketCard(id, { ok = false, keep = null } = {}){
+  const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
+  const mx = (A.x + B.x) / 2 - (B.y - A.y) * .18, my = (A.y + B.y) / 2 + (B.x - A.x) * .18;
+  return `<div class="tcard${ok ? " done" : ""}${on ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
+    <svg class="tmap" viewBox="60 40 1760 1860" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}Q${mx} ${my} ${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
+    <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
+    <span class="tpts">${t.points}</span>
+    ${ok ? `<span class="tok">✓ Connected</span>` : ""}
+    ${keep !== null ? `<label class="keepbox"><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${keep ? " checked" : ""}> Keep</label>` : ""}
+  </div>`;
+}
 function toggleTicketFocus(id){
   if (focusTk?.id === id) { const back = focusTk.prev; focusTk = null; hlTicket = lastPointer === "mouse" ? id : null; render(); glideTo(back); return; }
   const prev = focusTk ? focusTk.prev : mapView(), v = ticketView(id); if (!v) return;
@@ -1148,6 +1176,7 @@ document.addEventListener("pointerdown", e => {
 }, true);
 function updateRings(){ const bw = document.querySelector(".boardwrap svg"); if (!bw) return; const tmp = document.createElement("div"); tmp.innerHTML = boardSVG(); bw.replaceWith(tmp.firstChild); wireRoutes(); }
 
+document.body.insertAdjacentHTML("beforeend", `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="coastP" d="${COAST}" fill="#e2e8cc" stroke="#7f9a80" stroke-width="14" stroke-linejoin="round"/></defs></svg>`);
 boot();
 </script>
 </body>
