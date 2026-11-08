@@ -130,16 +130,11 @@ button.card{padding:4px 5px}
 .tcard.done{border-color:#2c7d49}
 .tcard .tok{grid-column:1/-1;font-size:11px;font-weight:700;color:#2c7d49;margin-top:-2px}
 .tcard.on{outline:3px solid var(--accent);outline-offset:2px}
-.tcard .keepbox{grid-column:1/-1;display:flex;align-items:center;gap:6px;justify-self:stretch;margin:0;padding:5px 8px;border-radius:8px;background:#ede0bb;font-size:13px;font-weight:700;cursor:pointer}
-.tcard .keepbox input{width:18px;height:18px;margin:0}
 .tcard.kept{border-color:#2c7d49;box-shadow:0 0 0 2px #2c7d49}
-.tcard.kept .keepbox{background:#2c7d49;color:#fff}
 .tk{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .tk.done{border-color:var(--ok)}
 .tk[data-tk]{cursor:pointer}
 .tk.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.tk .keepbox{display:grid;place-items:center;width:34px;height:34px;margin:-7px 0 -7px -9px;cursor:pointer}
-.tk .keepbox input{width:20px;height:20px;margin:0;cursor:pointer}
 .tk .pts{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
 .tk .ok{color:var(--ok);font-weight:700;font-size:12px}
 label.tk{cursor:pointer}
@@ -1003,8 +998,9 @@ function wire(){
   g.querySelectorAll("[data-tk]").forEach(el => {
     el.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") { hlTicket = el.dataset.tk; updateRings(); } });
     el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { hlTicket = focusTk?.id || null; updateRings(); } });
-    el.addEventListener("click", e => { if (!e.target.closest(".keepbox")) toggleTicketFocus(el.dataset.tk); });
-    el.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === el) { e.preventDefault(); toggleTicketFocus(el.dataset.tk); } });
+    const act = () => el.dataset.choose ? toggleKeep(el) : toggleTicketFocus(el.dataset.tk);
+    el.addEventListener("click", act);
+    el.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === el) { e.preventDefault(); act(); } });
     el.addEventListener("focus", () => { if (lastPointer !== "mouse" && Date.now() - lastPointerAt < 800) return; hlTicket = el.dataset.tk; updateRings(); });
     el.addEventListener("blur", () => { if (lastPointer === "mouse") { hlTicket = focusTk?.id || null; updateRings(); } });
   });
@@ -1154,13 +1150,21 @@ function ticketView(id){
 }
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
-  return `<div class="tcard${ok ? " done" : ""}${on ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}" tabindex="0" aria-pressed="${on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
+  return `<div class="tcard${ok ? " done" : ""}${on && keep === null ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}"${keep !== null ? ' data-choose="1"' : ""} tabindex="0" role="button" aria-pressed="${keep !== null ? !!keep : on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
     <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}L${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
 <span class="tpts">${t.points}<small>pts</small></span></span>
     <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
     ${ok ? `<span class="tok">✓ Connected</span>` : ""}
-    ${keep !== null ? `<label class="keepbox"><input type="checkbox" class="keep" id="keep-${id}" value="${id}"${keep ? " checked" : ""}> Keep</label>` : ""}
+
   </div>`;
+}
+function toggleKeep(el){
+  const id = el.dataset.tk, kept = !tkSel.has(id);
+  kept ? tkSel.add(id) : tkSel.delete(id);
+  el.classList.toggle("kept", kept); el.setAttribute("aria-pressed", kept);
+  const kb = document.getElementById("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
+  hlTicket = id; updateRings();
+  const v = ticketView(id); if (v) glideTo(v);
 }
 function toggleTicketFocus(id){
   if (focusTk?.id === id) { const back = focusTk.prev; focusTk = null; hlTicket = lastPointer === "mouse" ? id : null; render(); glideTo(back); return; }
