@@ -982,9 +982,10 @@ function render(){
   html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
-  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended"); afterRender();
+  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended");
   fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
+  afterRender(); // after the view is restored, so a claim's glide starts from where you were looking
   const le = g.querySelector(".log"); if (le && logAtBottom) le.scrollTop = le.scrollHeight;
 }
 function hostWaitHTML(){
