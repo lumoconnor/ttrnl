@@ -1164,7 +1164,6 @@ function toggleKeep(el){
   el.classList.toggle("kept", kept); el.setAttribute("aria-pressed", kept);
   const kb = document.getElementById("keepBtn"); if (kb) kb.disabled = pending() || tkSel.size < +kb.dataset.min;
   hlTicket = id; updateRings();
-  const v = ticketView(id); if (v) glideTo(v);
 }
 function toggleTicketFocus(id){
   if (focusTk?.id === id) { const back = focusTk.prev; focusTk = null; hlTicket = lastPointer === "mouse" ? id : null; render(); glideTo(back); return; }
