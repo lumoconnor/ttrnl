@@ -116,6 +116,23 @@ button.card{padding:4px 5px}
 .tixrow{display:flex;gap:16px;align-items:center;margin-top:14px}
 
 .tix{display:grid;gap:6px}
+/* Move banner */
+#moveBanner{position:fixed;left:50%;top:12px;z-index:50;transform:translate(-50%,-140%);transition:transform .25s ease;pointer-events:none;max-width:min(560px,calc(100vw - 24px))}
+#moveBanner.show{transform:translate(-50%,0)}
+#moveBanner .mb{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 12px;border-radius:12px;background:#1c2830f2;color:#fff;font-weight:700;box-shadow:0 6px 24px #0005;border-left:8px solid var(--pc)}
+#moveBanner .mb .dot{width:14px;height:14px;border-radius:50%;background:var(--pc);flex:none;box-shadow:0 0 0 2px #fff}
+#moveBanner .mb .sub{font-weight:400;opacity:.85}
+/* Claimed route: cars land one at a time, then the route glows */
+@keyframes carIn{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes routeGlow{0%{stroke-opacity:0}25%{stroke-opacity:.7}100%{stroke-opacity:0}}
+.ci{transform-box:fill-box;transform-origin:center}
+.claimglow{fill:none;stroke-linecap:round;pointer-events:none}
+/* Players panel: last move and score gains */
+.lastmove{font-size:12px;color:var(--muted);margin-top:1px}
+.score{position:relative}
+.scorefly{position:absolute;right:0;top:-4px;font-size:13px;font-weight:700;color:var(--ok);animation:scoreFly 1.6s ease-out forwards;pointer-events:none}
+@keyframes scoreFly{0%{transform:translateY(6px);opacity:0}15%{opacity:1}100%{transform:translateY(-22px);opacity:0}}
+@media (prefers-reduced-motion:reduce){#moveBanner{transition:none}.ci,.claimglow,.scorefly{animation:none!important}}
 /* Destination tickets as cards: a mini map of the island with the two towns, the names, and the points. */
 .tix.cards{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
 .tcard{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px 8px;align-items:center;min-height:74px;min-width:0;padding:6px 8px 6px 6px;
@@ -213,6 +230,14 @@ function shuffle(a){ for (let i = a.length - 1; i > 0; i--) { const j = randInt(
 function newGame(hostId, hostName){
   return { v:1, phase:"lobby", hostId, players:[{ id:hostId, name:hostName, color:0 }], log:[`${hostName} created the game.`], processed:{}, errors:{}, rev:0 };
 }
+/* Moves as data, for the banner, map animation and players panel. Public information only: pile draws are counts, never colours. */
+function addEv(s, e){
+  s.evN = (s.evN || 0) + 1; e.n = s.evN;
+  const list = s.events || (s.events = []);
+  const last = list[list.length - 1];
+  if (e.type === "draw" && last?.type === "draw" && last.pid === e.pid && last.open) { last.face.push(...e.face); last.blind += e.blind; last.n = e.n; last.open = e.open; return; }
+  list.push(e); if (list.length > 40) list.splice(0, list.length - 40);
+}
 function addLog(s, msg){ s.log.push(msg); if (s.log.length > 80) s.log.splice(0, s.log.length - 80); }
 function drawCard(s){
   if (!s.deck.length && s.discard.length) { s.deck = shuffle(s.discard); s.discard = []; }
@@ -276,7 +301,7 @@ function apply(s, pid, a){
     if (pid !== s.hostId) fail("Only the host can end the game.");
     if (s.phase === "ended") return;
     if (s.phase === "lobby") { s.phase = "ended"; s.final = []; addLog(s, `${p.name} closed the game.`); return; }
-    addLog(s, `${p.name} ended the game early. Scoring it as it stands.`);
+    addLog(s, `${p.name} ended the game early. Scoring it as it stands.`); addEv(s, { type:"endNow", pid });
     s.players.forEach(q => { q.pending = []; });
     endGame(s); return;
   }
@@ -293,6 +318,7 @@ function apply(s, pid, a){
     if (keep.length < Math.min(min, p.pending.length)) fail(`Keep at least ${min} ticket${min > 1 ? "s" : ""}.`);
     const back = p.pending.filter(id => !keep.includes(id));
     p.tickets.push(...keep); s.ticketDeck.unshift(...back); p.pending = [];
+    addEv(s, { type:"kept", pid, kept:keep.length, initial:s.phase === "initialTickets" });
     if (s.phase === "initialTickets") {
       addLog(s, `${p.name} kept ${keep.length} tickets.`);
       if (s.players.every(q => !q.pending?.length)) { s.phase = "playing"; s.turnStep = "start"; addLog(s, `${s.players[s.current].name}'s turn.`); }
@@ -306,7 +332,7 @@ function apply(s, pid, a){
     case "drawDeck": {
       if (s.turnStep === "choosingTickets") fail("Choose your tickets first.");
       if (s.deck.length + s.discard.length === 0) fail("The draw pile is empty.");
-      give(drawCard(s));
+      give(drawCard(s)); addEv(s, { type:"draw", pid, face:[], blind:1, open:s.turnStep === "start" });
       if (s.turnStep === "start") { s.turnStep = "drewOne"; if (!canDrawAny(s)) { addLog(s, `${p.name} drew 1 card.`); endTurn(s); } }
       else { addLog(s, `${p.name} drew 2 cards.`); endTurn(s); }
       return;
@@ -316,7 +342,7 @@ function apply(s, pid, a){
       const i = a.index | 0, c = s.market[i];
       if (c == null) fail("There's no card there.");
       if (c === "wild" && s.turnStep === "drewOne") fail("A face-up wild can only be taken as your first card.");
-      give(c); s.market[i] = drawCard(s); fillMarket(s);
+      give(c); s.market[i] = drawCard(s); fillMarket(s); addEv(s, { type:"draw", pid, face:[c], blind:0, open:!(c === "wild" || s.turnStep === "drewOne") });
       const label = CARD[c].label.toLowerCase();
       if (c === "wild" || s.turnStep === "drewOne") { addLog(s, `${p.name} took a face-up ${label}${s.turnStep === "drewOne" ? " as a second card" : ""}.`); endTurn(s); }
       else { s.turnStep = "drewOne"; s.firstPick = label; if (!s.market.some(x => x && x !== "wild") && s.deck.length + s.discard.length === 0) { addLog(s, `${p.name} took a face-up ${label}.`); endTurn(s); } }
@@ -325,7 +351,7 @@ function apply(s, pid, a){
     case "drawTickets": {
       if (s.turnStep !== "start") fail("You can only draw tickets at the start of your turn.");
       if (!s.ticketDeck.length) fail("There are no tickets left.");
-      p.pending = s.ticketDeck.splice(-R.ticketsOffered); s.turnStep = "choosingTickets"; return;
+      p.pending = s.ticketDeck.splice(-R.ticketsOffered); s.turnStep = "choosingTickets"; addEv(s, { type:"ticketsDrawn", pid, count:p.pending.length }); return;
     }
     case "claim": {
       if (s.turnStep !== "start") fail("You can only claim a route at the start of your turn.");
@@ -346,13 +372,14 @@ function apply(s, pid, a){
       p.trainsLeft -= cost; s.claims[r.id] = pid;
       const pts = R.routeScores[r.length] || 0, bonus = r.kind === "mountain" ? (R.mountainBonusPoints || 0) : 0;
       p.routePts += pts; p.bonusPts += bonus; p.score = p.routePts + p.bonusPts;
+      addEv(s, { type:"claim", pid, routeId:r.id, pts:pts + bonus, cards });
       addLog(s, `${p.name} claimed ${cname(r.a)} to ${cname(r.b)} (${r.length}) for ${pts + bonus} points${bonus ? ", including the mountain bonus" : ""}.`);
       endTurn(s); return;
     }
     case "pass": {
       if (s.turnStep !== "start") fail("Finish your turn first.");
       if (canDrawAny(s) || s.ticketDeck.length) fail("You still have a move: draw cards or tickets.");
-      addLog(s, `${p.name} passed.`); endTurn(s); return;
+      addLog(s, `${p.name} passed.`); addEv(s, { type:"pass", pid }); endTurn(s); return;
     }
   }
   fail("Unknown move.");
@@ -361,10 +388,10 @@ function endTurn(s){
   const p = s.players[s.current];
   delete s.firstPick;
   if (s.finalTurnsLeft == null) {
-    if (p.trainsLeft <= R.endTrainsThreshold) { s.finalTurnsLeft = s.players.length; s.phase = "finalRound"; addLog(s, `${p.name} is down to ${p.trainsLeft} trains. Everyone gets one last turn.`); }
+    if (p.trainsLeft <= R.endTrainsThreshold) { s.finalTurnsLeft = s.players.length; s.phase = "finalRound"; addEv(s, { type:"final", pid:p.id, trains:p.trainsLeft }); addLog(s, `${p.name} is down to ${p.trainsLeft} trains. Everyone gets one last turn.`); }
   } else if (--s.finalTurnsLeft <= 0) { return endGame(s); }
   s.current = (s.current + 1) % s.players.length; s.turnStep = "start";
-  addLog(s, `${s.players[s.current].name}'s turn.`);
+  addLog(s, `${s.players[s.current].name}'s turn.`); addEv(s, { type:"turn", pid:s.players[s.current].id });
 }
 function ownedRoutes(s, pid){ return Object.entries(s.claims || {}).filter(([, o]) => o === pid).map(([id]) => ROUTE[id]); }
 function connectedFn(routes){
@@ -399,7 +426,8 @@ function endGame(s){
 /* ---------------- Game session ---------------- */
 let db = null, me = null, acct = null, code = null, gameRef = null, state = null, inbox = [];
 let tkSel = new Set(), tkKey = "";
-let focusTk = null, viewAnim = 0;
+let focusTk = null, viewAnim = 0, evSeen = null, prevScores = {}, scoreFly = {};
+const claimAnim = {}, CAR_STEP = .11;
 let selShown = new Set(), lastPointer = "mouse", lastPointerAt = 0, wakeLock = null;
 let local = null, confirmEnd = false, unsubs = [], lastSent = 0, sendError = null, selRoute = null, zoom = 1, hlTicket = null, busy = false, again = false, waitTimer = null, hostSlow = false;
 const isHost = () => state && me && state.hostId === me;
@@ -677,6 +705,7 @@ function netMsg(err){
 function writeMsg(err){ return netMsg(err); }
 
 function enter(c){
+  evSeen = null;
   code = c; store.set("nfr-last", c); try { history.replaceState(null, "", "#" + c); } catch { location.hash = c; }
   unsubs.forEach(u => u()); unsubs = [];
   gameRef = db.doc("games/" + c);
@@ -696,6 +725,7 @@ function actingId(s){
   return s.players[s.current].id;
 }
 function startLocal(names, handoff, test){
+  evSeen = null;
   const ids = names.map((n, i) => "local" + i);
   const s = newGame(ids[0], names[0]);
   names.slice(1).forEach((n, i) => apply(s, ids[i + 1], { type:"join", name:n }));
@@ -793,16 +823,18 @@ function boardSVG(){
     const mid = cars[Math.floor((cars.length - 1) / 2)];
     let g = "";
     const edge = r.color === "black" ? "#fff" : "#3a3a3a";
+    const an = pl && claimAnim[r.id], el = an ? (performance.now() - an) / 1000 : 0;
+    if (an) cars.forEach(c => { g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})"><rect x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${CAR_FILL[r.color]}" stroke="${edge}" stroke-width="1.4" opacity=".55"/></g>`; });
     cars.forEach((c, i) => {
-      g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})"><rect class="car" x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${fill}" stroke="${pl ? "#111" : edge}" stroke-width="${pl ? 2.4 : 1.4}"/>`;
+      g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})">${an ? `<g class="ci" style="animation:carIn .26s cubic-bezier(.2,.9,.3,1.35) ${(i * CAR_STEP - el).toFixed(3)}s both">` : ""}<rect class="car" x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${fill}" stroke="${pl ? "#111" : edge}" stroke-width="${pl ? 2.4 : 1.4}"/>`;
       if (!pl && r.kind === "ferry" && i < (r.wildsRequired || 0)) g += `<circle r="4.6" fill="url(#wildG)" stroke="#222" stroke-width="1.2"/>`;
       if (!pl && r.kind === "mountain" && c === mid) { const hx = c.len / 2 - 1.6; g += `<path d="M${f1(-hx)} -5.4L${f1(hx)} 5.4M${f1(-hx)} 5.4L${f1(hx)} -5.4" stroke="${edge}" stroke-width="1.8" stroke-linecap="round"/>`; }
       if (pl) g += `<circle r="3.4" fill="#fff" stroke="#111" stroke-width="1"/>`;
-      g += `</g>`;
+      g += an ? `</g></g>` : `</g>`;
     });
     const d = "M" + cv.P.map(p => `${f1(p.x)} ${f1(p.y)}`).join("L");
     const desc = `${cname(r.a)} – ${cname(r.b)}: ${r.length} ${r.color === "gray" ? "any color" : CARD[r.color].label.toLowerCase()}${r.kind === "mountain" ? ", mountain" : r.kind === "ferry" ? `, ferry (${r.wildsRequired} wild)` : ""}${pl ? `, taken by ${pl.name}` : ""}`;
-    routes += `<g class="rt${selShown.has(r.id) ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
+    routes += `<g class="rt${selShown.has(r.id) ? " sel" : ""}${pl ? " own" : ""}" data-route="${r.id}"><title>${esc(desc)}</title><path class="route-hit" d="${d}"/>${an ? `<path class="claimglow" d="${d}" stroke="${fill}" stroke-width="30" style="animation:routeGlow 1.8s ease-out ${(cars.length * CAR_STEP - el).toFixed(3)}s both"/>` : ""}<path d="${d}" fill="none" stroke="${fill}" stroke-width="3" stroke-opacity="${pl ? .9 : .55}" pointer-events="none"/><path d="${d}" fill="none" stroke="#1f2a2e" stroke-width="1" stroke-opacity=".35" pointer-events="none"/>${g}</g>`;
   }
   const mp = myPlayer(); const ticketCities = new Set();
   (mp?.tickets || []).concat((mp?.pending || []).filter(id => tkSel.has(id)), hlTicket ? [hlTicket] : []).forEach(id => { const t = TICKET[id]; if (t) { ticketCities.add(t.from); ticketCities.add(t.to); } });
@@ -931,10 +963,10 @@ function render(){
     html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
-  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score">${p.score}</span></div>`).join("")}</div>
+  html += `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   html += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div></div>`;
-  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended");
+  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended"); afterRender();
   fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
   const le = g.querySelector(".log"); if (le && logAtBottom) le.scrollTop = le.scrollHeight;
@@ -1160,6 +1192,106 @@ function ticketCard(id, { ok = false, keep = null } = {}){
 
   </div>`;
 }
+/* ---------------- Showing moves ----------------
+   Each new move event gets a banner; a claimed route pans into view and its cars land one at a time;
+   the players panel shows each player's last move and floats score gains. */
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+function whoName(pid, cap){ const pl = state.players.find(p => p.id === pid); if (!local && pid === me) return cap ? "You" : "you"; return pl?.name || "Someone"; }
+function drawText(e){
+  const parts = e.face.map(c => `a face-up ${CARD[c].label.toLowerCase()}`);
+  if (e.blind) parts.push(`${e.blind} from the pile`);
+  return parts.join(" and ");
+}
+function evText(e){
+  const who = whoName(e.pid, true);
+  switch (e.type) {
+    case "claim": { const r = ROUTE[e.routeId]; return [`${who} claimed ${cname(r.a)} – ${cname(r.b)}`, `+${e.pts} points`]; }
+    case "draw": return [`${who} took ${drawText(e)}`, ""];
+    case "ticketsDrawn": return [`${who} ${who === "You" ? "are" : "is"} choosing destination tickets`, ""];
+    case "kept": return [`${who} kept ${plural(e.kept, "ticket")}`, e.initial ? "" : ""];
+    case "pass": return [`${who} passed`, "nothing left to draw"];
+    case "final": return [`${who} ${who === "You" ? "are" : "is"} down to ${plural(e.trains, "train")}`, "everyone gets one last turn"];
+    case "endNow": return [`${who} ended the game`, ""];
+  }
+  return null;
+}
+function lastMoveOf(pid){
+  const e = [...(state?.events || [])].reverse().find(x => x.pid === pid && x.type !== "turn" && x.type !== "final");
+  if (!e) return "";
+  switch (e.type) {
+    case "claim": { const r = ROUTE[e.routeId]; return `Claimed ${cname(r.a)} – ${cname(r.b)} (+${e.pts})`; }
+    case "draw": { const t = drawText(e); return "Took " + t.replace(/^a face-up /, "face-up ").replace(/ and a face-up /, " + face-up ").replace(/ and /, " + "); }
+    case "ticketsDrawn": return "Choosing tickets";
+    case "kept": return `Kept ${plural(e.kept, "ticket")}`;
+    case "pass": return "Passed";
+    case "endNow": return "Ended the game";
+  }
+  return "";
+}
+// Banner queue: one at a time, ~3 s each; a draw that grows (second card) updates the banner in place.
+const bannerQ = []; let bannerCur = null, bannerTimer = 0;
+function banner(key, text, sub, color){
+  if (bannerCur?.key === key) { bannerCur.text = text; bannerCur.sub = sub; showBanner(bannerCur, true); return; }
+  const q = bannerQ.find(b => b.key === key); if (q) { q.text = text; q.sub = sub; return; }
+  bannerQ.push({ key, text, sub, color });
+  if (!bannerCur) return nextBanner();
+  // Something new is waiting: let the current banner finish soon instead of its full time.
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { document.getElementById("moveBanner")?.classList.remove("show"); setTimeout(nextBanner, 260); }, 900);
+}
+function nextBanner(){
+  const el = document.getElementById("moveBanner");
+  bannerCur = bannerQ.shift() || null;
+  if (!bannerCur) { el?.classList.remove("show"); return; }
+  showBanner(bannerCur);
+}
+function showBanner(b, extend){
+  let el = document.getElementById("moveBanner");
+  if (!el) { el = document.createElement("div"); el.id = "moveBanner"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); document.body.appendChild(el); }
+  el.innerHTML = `<div class="mb" style="--pc:${b.color}"><span class="dot"></span><span>${esc(b.text)}${b.sub ? ` <span class="sub">· ${esc(b.sub)}</span>` : ""}</span></div>`;
+  el.classList.add("show");
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { el.classList.remove("show"); setTimeout(nextBanner, bannerQ.length ? 260 : 0); }, bannerQ.length ? 2200 : 3000);
+}
+function routeView(id){
+  const bw = document.querySelector(".boardwrap"); if (!bw) return null;
+  const P = curve(ROUTE[id]).P, pad = 90, s1 = bw.clientWidth / BOARD.canvas.width;
+  const x0 = Math.min(...P.map(q => q.x)) - pad, x1 = Math.max(...P.map(q => q.x)) + pad, y0 = Math.min(...P.map(q => q.y)) - pad, y1 = Math.max(...P.map(q => q.y)) + pad;
+  // Already fully in view: leave the map alone.
+  const vx0 = bw.scrollLeft / (s1 * zoom), vy0 = bw.scrollTop / (s1 * zoom), vx1 = vx0 + bw.clientWidth / (s1 * zoom), vy1 = vy0 + bw.clientHeight / (s1 * zoom);
+  if (x0 >= vx0 && x1 <= vx1 && y0 >= vy0 && y1 <= vy1) return null;
+  const fit = Math.min(bw.clientWidth / ((x1 - x0) * s1), bw.clientHeight / ((y1 - y0) * s1));
+  return { z:Math.max(1, Math.min(zoom, fit)), cx:(x0 + x1) / 2, cy:(y0 + y1) / 2 };
+}
+function animateClaim(id){
+  const v = routeView(id);
+  if (v) glideTo(v);
+  claimAnim[id] = performance.now() + (v ? 600 : 150);
+  const total = (v ? 600 : 150) + (ROUTE[id].length * CAR_STEP + 1.9) * 1000;
+  setTimeout(() => { delete claimAnim[id]; }, total);
+  updateRings();
+}
+function afterRender(){
+  const s = state; if (!s) return;
+  if (evSeen == null) { evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); return; }
+  for (const e of (s.events || []).filter(e => e.n > evSeen)) {
+    const t = evText(e), pl = s.players.find(p => p.id === e.pid);
+    if (t && !(e.type === "kept" && e.initial)) banner(e.type === "draw" ? `draw-${e.pid}-${e.n - (e.face.length + e.blind) + 1}` : `ev-${e.n}`, t[0], t[1], SEAT_COLORS[pl?.color ?? 0][1]);
+    if (e.type === "claim") animateClaim(e.routeId);
+  }
+  evSeen = s.evN || 0;
+  for (const p of s.players) {
+    const d = p.score - (prevScores[p.id] ?? p.score);
+    if (d > 0) scoreFly[p.id] = { d, t:performance.now() };
+    prevScores[p.id] = p.score;
+  }
+  // Re-add running score floats after every render, picking up where they were.
+  for (const [pid, f] of Object.entries(scoreFly)) {
+    const age = performance.now() - f.t; if (age > 1600) { delete scoreFly[pid]; continue; }
+    const el = document.querySelector(`.score[data-pid="${CSS.escape(pid)}"]`); if (!el) continue;
+    const sp = document.createElement("span"); sp.className = "scorefly"; sp.textContent = `+${f.d}`; sp.style.animationDelay = `${(-age / 1000).toFixed(3)}s`; el.appendChild(sp);
+  }
+}
+
 function toggleKeep(el){
   const id = el.dataset.tk, kept = !tkSel.has(id);
   kept ? tkSel.add(id) : tkSel.delete(id);
