@@ -92,6 +92,19 @@ button.card{padding:4px 5px}
 .card.c-black{color:#f4f4f4}
 .card.c-wild{background:conic-gradient(#d8302e,#eaa52a,#e8d84a,#8ad42a,#2a86e0,#d98ad8,#d8302e)!important}
 .card.c-wild .lbl{background:#fff;border-radius:4px;padding:0 3px;align-self:flex-start}
+/* Payment options: the actual cards you'd spend */
+.payopt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 12px 8px 10px;border-radius:10px;background:var(--soft);border:2px solid var(--line);cursor:pointer;color:inherit;transition:border-color .12s,transform .12s}
+@media (hover:hover){.payopt:not(:disabled):hover{border-color:var(--accent);transform:translateY(-1px)}}
+.payopt:disabled{opacity:.6;cursor:default}
+.paycards{display:flex;flex-wrap:wrap;gap:6px 12px}
+.paygrp{display:flex}
+.mini{position:relative;width:26px;height:36px;border-radius:5px;border:1.5px solid rgba(0,0,0,.4);box-shadow:1px 0 0 rgba(0,0,0,.18);flex:none;color:#111}
+.paygrp .mini+.mini{margin-left:-16px}
+.mini b{position:absolute;right:3px;bottom:1px;font-family:var(--display);font-size:15px;line-height:1}
+.mini.c-black{color:#f4f4f4}
+.mini.c-wild{background:conic-gradient(#d8302e,#eaa52a,#e8d84a,#8ad42a,#2a86e0,#d98ad8,#d8302e)!important}
+.mini.c-wild b{background:#fff;border-radius:4px;padding:0 3px;color:#111}
+.paygo{font-weight:700;color:var(--accent);flex:none}
 .card.empty{background:var(--soft)!important;border-style:dashed;color:var(--muted)}
 .drawrow{display:flex;gap:6px;align-items:flex-end}
 .drawrow .card{width:44px;height:62px;flex:none;font-size:10px;padding:4px 3px}
@@ -981,7 +994,7 @@ function render(){
       else if (s.turnStep !== "start") body += `<div class="muted">Finish your draw first.</div>`;
       else if (mp.trainsLeft < cost) body += `<div class="err">You only have ${mp.trainsLeft} trains left.</div>`;
       else if (!opts.length) body += `<div class="muted">You don't have the cards for this route yet.</div>`;
-      else body += `<div class="stack" style="gap:6px">${opts.map((o, i) => `<button class="primary payopt" data-r="${id}" data-i="${i}" ${wait ? "disabled" : ""}>Pay ${Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" + ")}</button>`).join("")}</div>`;
+      else body += `<div class="stack" style="gap:6px">${opts.map((o, i) => `<button class="payopt" data-r="${id}" data-i="${i}" ${wait ? "disabled" : ""} aria-label="Pay ${Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" and ")}"><span class="paycards">${payCards(o)}</span><span class="paygo">Pay</span></button>`).join("")}</div>`;
       return group.length > 1 ? `<div class="claimopt"><h3>${r.color === "gray" ? "Gray route (any color)" : `${CARD[r.color].label} route`}</h3>${body}</div>` : body;
     }).join("");
     html += `<div class="panel claim"><div class="row" style="justify-content:space-between"><h2>${esc(cname(r0.a))} – ${esc(cname(r0.b))}</h2><button id="closeClaim" aria-label="Close">Close</button></div>${group.length > 1 ? `<div class="small muted">Double route: either side can be claimed.</div>` : ""}${boxes}</div>`;
@@ -1238,6 +1251,10 @@ function dealTickets(cards, ids){
   const key = ids.join(); if (tkDeal.key !== key) tkDeal = { key, t:performance.now() };
   const age = (performance.now() - tkDeal.t) / 1000;
   return cards.map((h, i) => { const dl = i * .3 - age; return dl > -.6 ? h.replace('<div class="tcard', `<div style="--dl:${dl.toFixed(3)}s" class="deal tcard`) : h; }).join("");
+}
+// The cards a payment option would spend, drawn as small overlapping cards per colour with the count on the top one.
+function payCards(o){
+  return Object.entries(o).map(([c, n]) => `<span class="paygrp">${Array.from({ length:n }, (_, k) => `<span class="mini c-${c}" style="background:${CARD[c].hex}">${k === n - 1 ? `<b>${n}</b>` : ""}</span>`).join("")}</span>`).join("");
 }
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
