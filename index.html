@@ -163,7 +163,8 @@ button.card{padding:4px 5px}
 /* End-of-game reveal */
 .reveal{gap:12px}
 .rrows{position:relative}
-.rrow{position:absolute;left:0;right:0;transition:top .5s cubic-bezier(.3,.7,.3,1);display:grid;gap:5px}
+.rrow{position:absolute;left:-8px;right:-8px;padding:4px 8px;border-radius:10px;transition:top .5s cubic-bezier(.3,.7,.3,1),background .3s;display:grid;gap:5px}
+.rrow.on{background:var(--soft);box-shadow:inset 0 0 0 2px var(--line)}
 .rtop{display:flex;align-items:center;gap:7px;min-width:0}
 .rtop .rk{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;background:var(--soft);border:1px solid var(--line);font-size:12px;font-weight:700;flex:none}
 .rtop .sw{width:11px;height:11px;border-radius:3px;flex:none}
@@ -1398,8 +1399,10 @@ function revealSetup(s){
   clearTimeout(REV.timer);
   const F = Object.fromEntries(s.final.map(f => [f.id, f]));
   const steps = [], queues = s.players.map(p => [...F[p.id].done.map(id => [id, true]), ...F[p.id].missed.map(id => [id, false])]);
-  // Round-robin, so the lead can change as tickets come in.
-  for (let j = 0; queues.some(q => q[j]); j++) s.players.forEach((p, i) => { const t = queues[i][j]; if (t) steps.push({ kind:"ticket", pid:p.id, tid:t[0], ok:t[1] }); });
+  // One player at a time, starting with the lowest in-game score so the leader goes last.
+  const start0 = id => F[id].routePts + F[id].mountain;
+  s.players.map((p, i) => [p, i]).sort((a, b) => start0(a[0].id) - start0(b[0].id) || a[1] - b[1])
+    .forEach(([p, i]) => queues[i].forEach(t => steps.push({ kind:"ticket", pid:p.id, tid:t[0], ok:t[1] })));
   const top = Math.max(...s.final.map(f => f.longest));
   if (top > 0) steps.push({ kind:"longest", pids:s.final.filter(f => f.bonus).map(f => f.id), len:top });
   steps.push({ kind:"end" });
@@ -1417,12 +1420,12 @@ function revealNext(){
   const s = state, owned = id => ownedRoutes(s, id);
   if (st.kind === "ticket") {
     const t = TICKET[st.tid], pts = t.points;
-    REV.score[st.pid] += st.ok ? pts : -pts;
+    REV.score[st.pid] += st.ok ? pts : -pts; REV.active = st.pid;
     (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1;
     REV.note = { [st.pid]:{ text:`${cname(t.from)} – ${cname(t.to)} ${st.ok ? "+" : "−"}${pts}`, ok:st.ok } };
     REV.hl = { color:SEAT_COLORS[s.players.find(p => p.id === st.pid).color][1], ok:st.ok, towns:[t.from, t.to], routes:st.ok ? pathRoutes(owned(st.pid), t.from, t.to) : [] };
   } else if (st.kind === "longest") {
-    st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; });
+    st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; }); REV.active = null;
     REV.note = Object.fromEntries(st.pids.map(id => [id, { text:`Longest route: ${st.len} +${REV.F[id].bonus}`, gold:true }]));
     REV.hl = { gold:true, routes:st.pids.flatMap(id => longestTrailRoutes(owned(id))), towns:[] };
   } else { REV.done = true; REV.note = {}; REV.hl = null; render(); return; }
@@ -1448,7 +1451,8 @@ function revealHTML(){
   const longI = c => `<svg viewBox="0 0 46 20" class="lgi">${[0, 15, 30].map(x => `<rect x="${x + 1}" y="5" width="13" height="10" rx="2" fill="${c}" stroke="#111" stroke-width="1.3"/>`).join("")}<path d="M3 3H43" stroke="#e8a92a" stroke-width="2.4" stroke-linecap="round"/></svg>`;
   const rows = s.players.map(p => {
     const c = SEAT_COLORS[p.color][1], sc = REV.score[p.id], n = REV.note[p.id], r = rank[p.id];
-    return `<div class="rrow" data-pid="${p.id}" style="top:${r * REV_ROW}px">
+    const on = !REV.done && REV.active === p.id;
+    return `<div class="rrow${on ? " on" : ""}" data-pid="${p.id}" style="top:${r * REV_ROW}px">
       <div class="rtop">${REV.done ? `<span class="medal m${r}">${r + 1}</span>` : `<span class="rk">${r + 1}</span>`}<span class="sw" style="background:${c}"></span><b class="rname">${esc(p.name)}</b>
         <span class="rmini"><span class="mi">${tkI(true)}<b>${REV.made[p.id] || 0}</b></span><span class="mi">${tkI(false)}<b>${REV.missed[p.id] || 0}</b></span>${REV.longest[p.id] ? `<span class="mi">${longI(c)}</span>` : ""}</span>
         <span class="rscore">${sc}</span></div>
@@ -1465,7 +1469,7 @@ function revealPaint(anim){
   if (REV.done) { box.replaceWith(fresh); wireReveal(); revealMap(); return; }
   fresh.querySelectorAll(".rrow").forEach(nr => {
     const old = box.querySelector(`.rrow[data-pid="${CSS.escape(nr.dataset.pid)}"]`); if (!old) return;
-    old.style.top = nr.style.top;
+    old.style.top = nr.style.top; old.classList.toggle("on", nr.classList.contains("on"));
     old.querySelector(".rk").textContent = nr.querySelector(".rk").textContent;
     old.querySelector(".rmini").innerHTML = nr.querySelector(".rmini").innerHTML;
     old.querySelector(".fill").style.width = nr.querySelector(".fill").style.width;
