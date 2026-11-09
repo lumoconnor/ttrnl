@@ -92,6 +92,15 @@ button,.card,.pile,.tk,label{touch-action:manipulation}
 .pl.turn{background:var(--soft);outline:2px solid var(--accent)}
 .sw{width:14px;height:14px;border-radius:4px;border:2px solid var(--edgeline)}
 .pl .nums{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);text-align:right}
+.pl .nums.icons{display:flex;gap:12px;align-items:center;margin-top:3px;text-align:left}
+.nums.icons .cnt{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.nums.icons b{font-weight:700;font-size:13px}
+.nums.icons svg{display:block}
+.nums.icons .cnt>svg{width:27px;height:18px}
+.cback{width:13px;height:18px;border-radius:2.5px;background:#8fb6d8;border:1.5px solid #3d6282;box-shadow:1.5px 1.5px 0 #5d88ad}
+.tback{width:20px;height:14px;border-radius:2.5px;background:#f6edd4;border:1.5px solid #8a6e3a;display:grid;place-items:center;box-shadow:1.5px 1.5px 0 #d8c79c}
+.tback svg{width:15px;height:9px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pl .score{font-family:var(--display);font-size:20px;color:var(--ink);font-weight:700}
 .cards{display:flex;gap:6px;flex-wrap:wrap}
 .card{width:52px;height:72px;border-radius:8px;border:2px solid rgba(0,0,0,.35);display:flex;flex-direction:column;justify-content:space-between;
@@ -1035,7 +1044,7 @@ function render(){
     html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
-  let left = `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums" style="text-align:left">${p.trainsLeft} trains · ${handCount(p)} cards · ${(p.tickets || []).length} tickets</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
+  let left = `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums icons">${playerCounts(p)}</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
   left += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div>`;
   html += `</div>`; html = html.replace("<!--LEFT-->", `<div class="side left">${left}</div>`);
@@ -1326,6 +1335,14 @@ function wireDragClaim(){
   });
 }
 /* ---------------- end EXPERIMENT ---------------- */
+// Players panel: trains left as a little rail car in the player's colour, hand size as a face-down train card, tickets as a face-down ticket.
+function playerCounts(p){
+  const col = SEAT_COLORS[p.color][1], tk = (p.tickets || []).length, hc = handCount(p);
+  const car = `<svg viewBox="0 0 30 20" aria-hidden="true"><rect x="3" y="5" width="26" height="12" rx="3" fill="#000" fill-opacity=".25"/><circle cx="8.5" cy="15" r="2.6" fill="#111"/><circle cx="21.5" cy="15" r="2.6" fill="#111"/><rect x="1.5" y="2.5" width="26" height="11" rx="3" fill="${col}" stroke="#111" stroke-width="1.4"/><rect x="5" y="5" width="5" height="3.6" rx=".8" fill="#fff" fill-opacity=".9"/><rect x="12" y="5" width="5" height="3.6" rx=".8" fill="#fff" fill-opacity=".9"/><rect x="19" y="5" width="5" height="3.6" rx=".8" fill="#fff" fill-opacity=".9"/></svg>`;
+  const back = `<span class="cback" aria-hidden="true"></span>`;
+  const tix = `<span class="tback" aria-hidden="true"><svg viewBox="0 0 46 28"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="3" stroke-dasharray="5 4"/><circle cx="6" cy="21" r="5" fill="#c4472c"/><circle cx="40" cy="7" r="5" fill="#c4472c"/></svg></span>`;
+  return `<span class="cnt" title="${p.trainsLeft} trains left">${car}<b>${p.trainsLeft}</b></span><span class="cnt" title="${hc} train card${hc === 1 ? "" : "s"}">${back}<b>${hc}</b></span><span class="cnt" title="${tk} ticket${tk === 1 ? "" : "s"}">${tix}<b>${tk}</b></span><span class="vh">${p.trainsLeft} trains, ${hc} cards, ${tk} tickets</span>`;
+}
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
   return `<div class="tcard${ok ? " done" : ""}${on && keep === null ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}"${keep !== null ? ' data-choose="1"' : ""} tabindex="0" role="button" aria-pressed="${keep !== null ? !!keep : on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
@@ -1449,7 +1466,7 @@ function showDraw(e, gained){
   // Your own pile draw: you get to see its colour land in your hand.
   const c = L.c || (mine ? gained.shift() : null);
   if (mine && c) handGlow[c] = performance.now();
-  const to = mine ? (document.querySelector(`[data-hc="${c}"]`) || document.querySelector(".handcards")) : document.querySelector(`.pl[data-pid="${CSS.escape(e.pid)}"] .sw`);
+  const to = mine ? (document.querySelector(`[data-hc="${c}"]`) || document.querySelector(".handcards")) : document.querySelector(`.pl[data-pid="${CSS.escape(e.pid)}"] .cback`);
   flyCard(from, to, c);
 }
 function replayGlows(){
