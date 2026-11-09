@@ -76,8 +76,8 @@ button,.card,.pile,.tk,label{touch-action:manipulation}
 .rt.hov .car{stroke:#e8431a;stroke-width:3.2}
 .rt.sel .car{stroke:#e8431a;stroke-width:4}
 /* EXPERIMENT drag-to-claim */
-.boardwrap.dragging .rt{opacity:.3;transition:opacity .12s}
-.boardwrap.dragging .rt.dragok,.boardwrap.dragging .rt.own{opacity:1}
+.boardwrap.cardDrag .rt{opacity:.3;transition:opacity .12s}
+.boardwrap.cardDrag .rt.dragok,.boardwrap.cardDrag .rt.own{opacity:1}
 .rt.dragok .car{stroke:#fff;stroke-width:3}
 .rt.dragon .car{stroke:#e8431a;stroke-width:4.5}
 .card.dragghost{position:fixed;z-index:70;pointer-events:none;width:52px;height:72px;transform:translate(-50%,-112%) rotate(-6deg) scale(.85);box-shadow:0 10px 24px #0007;opacity:.95}
@@ -1295,7 +1295,7 @@ function wireDragClaim(){
     const bw = () => document.querySelector(".boardwrap");
     const mark = () => {
       // Light up every route this colour can pay for (cheap to recompute; survives a re-render mid-drag).
-      const w = bw(); if (!w) return; w.classList.add("dragging");
+      const w = bw(); if (!w) return; w.classList.add("cardDrag");
       w.querySelectorAll(".rt[data-route]").forEach(g => { const r = ROUTE[g.dataset.route]; g.classList.toggle("dragok", !s.claims[r.id] && !!dragPay(r, c, p).pay); g.classList.toggle("dragon", r.id === target); });
     };
     const move = ev => {
@@ -1316,7 +1316,7 @@ function wireDragClaim(){
     const end = ev => {
       if (ev.pointerId !== id) return;
       removeEventListener("pointermove", move); removeEventListener("pointerup", end); removeEventListener("pointercancel", end);
-      const w = bw(); w?.classList.remove("dragging"); w?.querySelectorAll(".dragok,.dragon").forEach(g => g.classList.remove("dragok", "dragon"));
+      const w = bw(); w?.classList.remove("cardDrag"); w?.querySelectorAll(".dragok,.dragon").forEach(g => g.classList.remove("dragok", "dragon"));
       tag?.remove();
       if (ghost && ev.type === "pointerup" && target && res?.pay) { ghost.remove(); selRoute = null; send({ type:"claim", routeId:target, cards:res.pay }); return; }
       // Not claimed: the card slides back to the hand.
