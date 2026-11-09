@@ -1455,7 +1455,7 @@ function revealNext(){
   revealPaint(true);
   if (!REV.done) REV.timer = setTimeout(revealNext, st.kind === "longest" ? 2400 : REV_STEP);
 }
-// The ticket card for one reveal step: appears over the map clear of the highlighted route, shows Connected or Failed,
+// The ticket card for one reveal step: appears in the top-right of the map, shows Connected or Failed,
 // then shrinks into the player's bar. Returns when (ms) the card lands; calls land() then.
 function revealCard(st, land){
   const bw = document.querySelector(".boardwrap"), svg = bw?.querySelector("svg"), bar = document.querySelector(`.rrow[data-pid="${CSS.escape(st.pid)}"] .rbar`);
@@ -1466,17 +1466,9 @@ function revealCard(st, land){
   wrap.innerHTML = ticketCard(st.tid, {});
   const card = wrap.firstElementChild; card.classList.remove("on"); card.removeAttribute("tabindex"); card.removeAttribute("role");
   document.body.appendChild(wrap);
-  // Keep clear of the highlighted towns and path: try each corner of the map, take one that doesn't overlap, farthest away.
-  const mr = bw.getBoundingClientRect(), rc = svg.getBoundingClientRect(), sc = rc.width / BOARD.canvas.width;
-  const pts = [...(REV.hl?.towns || []).map(id => CITY[id]), ...(REV.hl?.routes || []).flatMap(id => curve(ROUTE[id]).P)].map(q => [rc.left + q.x * sc, rc.top + q.y * sc]);
-  const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]), pad = 24;
-  const hb = pts.length ? { l:Math.min(...xs) - pad, r:Math.max(...xs) + pad, t:Math.min(...ys) - pad, b:Math.max(...ys) + pad } : null;
-  const W = wrap.offsetWidth, H = wrap.offsetHeight, m = 14;
-  const L = Math.max(mr.left, 0) + m, R = Math.min(mr.right, innerWidth) - W - m, T = Math.max(mr.top, 0) + m + 50, B = Math.min(mr.bottom, innerHeight) - H - m;
-  const cands = [[L, T], [R, T], [L, B], [R, B], [(L + R) / 2, T], [(L + R) / 2, B]];
-  const hits = ([x, y]) => hb && !(x + W < hb.l || x > hb.r || y + H < hb.t || y > hb.b);
-  const far = ([x, y]) => hb ? Math.hypot(x + W / 2 - (hb.l + hb.r) / 2, y + H / 2 - (hb.t + hb.b) / 2) : 0;
-  const pick = [...cands].sort((a, b) => (hits(a) - hits(b)) || (far(b) - far(a)))[0];
+  // Always the top-right corner of the map, so the eye knows where to look.
+  const mr = bw.getBoundingClientRect(), W = wrap.offsetWidth, m = 14;
+  const pick = [Math.min(mr.right, innerWidth) - W - m, Math.max(mr.top, 0) + m];
   wrap.style.left = pick[0] + "px"; wrap.style.top = pick[1] + "px";
   requestAnimationFrame(() => wrap.classList.add("in"));
   const T1 = 650, T2 = 1550, T3 = 2150;
