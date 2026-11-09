@@ -965,7 +965,9 @@ function render(){
     wire(); return;
   }
   if (selRoute && s.claims?.[selRoute]) selRoute = null;
-  selShown = new Set(selRoute ? [selRoute, ...siblingsOf(ROUTE[selRoute])].filter(id => !s.claims[id]).sort((x, y) => BOARD.routes.findIndex(r => r.id === x) - BOARD.routes.findIndex(r => r.id === y)) : []);
+  // A twin side that's identical (same colour, length, ferry and mountain needs) would only repeat the same choices, so it's left out.
+  const sameAs = (a, b) => a.color === b.color && a.length === b.length && a.kind === b.kind && (a.wildsRequired || 0) === (b.wildsRequired || 0);
+  selShown = new Set(selRoute ? [selRoute, ...siblingsOf(ROUTE[selRoute]).filter(id => !sameAs(ROUTE[id], ROUTE[selRoute]))].filter(id => !s.claims[id]).sort((x, y) => BOARD.routes.findIndex(r => r.id === x) - BOARD.routes.findIndex(r => r.id === y)) : []);
   const [line, mine] = statusLine(); const wait = pending();
   const myTurn = mi === s.current && (s.phase === "playing" || s.phase === "finalRound");
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
