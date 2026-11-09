@@ -1217,7 +1217,7 @@ let tkDeal = { key:null, t:0 };
 function dealTickets(cards, ids){
   const key = ids.join(); if (tkDeal.key !== key) tkDeal = { key, t:performance.now() };
   const age = (performance.now() - tkDeal.t) / 1000;
-  return cards.map((h, i) => { const dl = .25 + i * .3 - age; return dl > -.6 ? h.replace('<div class="tcard', `<div style="--dl:${dl.toFixed(3)}s" class="deal tcard`) : h; }).join("");
+  return cards.map((h, i) => { const dl = i * .3 - age; return dl > -.6 ? h.replace('<div class="tcard', `<div style="--dl:${dl.toFixed(3)}s" class="deal tcard`) : h; }).join("");
 }
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
