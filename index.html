@@ -160,6 +160,34 @@ button.card{padding:4px 5px}
 @keyframes routeGlow{0%{stroke-opacity:0}25%{stroke-opacity:.7}100%{stroke-opacity:0}}
 .ci{transform-box:fill-box;transform-origin:center}
 .claimglow{fill:none;stroke-linecap:round;pointer-events:none}
+/* End-of-game reveal */
+.reveal{gap:12px}
+.rrows{position:relative}
+.rrow{position:absolute;left:0;right:0;transition:top .5s cubic-bezier(.3,.7,.3,1);display:grid;gap:5px}
+.rtop{display:flex;align-items:center;gap:7px;min-width:0}
+.rtop .rk{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;background:var(--soft);border:1px solid var(--line);font-size:12px;font-weight:700;flex:none}
+.rtop .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.rname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rmini{display:flex;gap:9px;align-items:center;margin-left:auto;flex:none}
+.rmini .mi{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.rscore{font-family:var(--display);font-size:24px;font-weight:700;min-width:44px;text-align:right;flex:none}
+.rscore.bump{animation:scoreBump .5s ease}
+@keyframes scoreBump{30%{transform:scale(1.25)}}
+.rbar{position:relative;height:16px;border-radius:8px;background:var(--soft);border:1px solid var(--line);overflow:visible}
+.rbar .fill{display:block;height:100%;border-radius:8px;transition:width .7s cubic-bezier(.3,.7,.3,1);min-width:4px}
+.rnote{position:absolute;left:8px;top:-1px;font-size:11px;font-weight:700;line-height:16px;padding:0 7px;border-radius:8px;color:#fff;white-space:nowrap;animation:noteIn .3s ease}
+.rnote.good{background:#2c7d49}.rnote.bad{background:#c0392b}.rnote.gold{background:#c98a10}
+@keyframes noteIn{from{opacity:0;transform:translateY(4px)}}
+.reveal .tb{position:relative;display:inline-grid;place-items:center;width:22px;height:15px;border-radius:3px;background:#f6edd4;border:1.5px solid #8a6e3a;flex:none}
+.reveal .tb svg{width:15px;height:9px}
+.reveal .tb i{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;border-radius:50%;font-style:normal;font-size:8px;font-weight:800;display:grid;place-items:center;color:#fff}
+.reveal .tb.ok i{background:#2c7d49}.reveal .tb.no i{background:#c0392b}
+.reveal .lgi{width:34px;height:15px}
+.medal{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-weight:800;font-size:13px;background:#cfd8dc;color:#1c2830;flex:none;animation:medalIn .5s cubic-bezier(.2,.9,.3,1.4) both}
+.medal.m0{background:#f2c94c}.medal.m1{background:#c9d1d6}.medal.m2{background:#d8a170}
+@keyframes medalIn{from{transform:scale(0) rotate(-90deg)}}
+.revglow{animation:revIn .45s ease-out}
+@keyframes revIn{from{opacity:0}}
 /* Players panel: last move and score gains */
 .lastmove{font-size:12px;color:var(--muted);margin-top:1px}
 .score{position:relative}
@@ -992,13 +1020,13 @@ function render(){
   const conn = mp ? connectedFn(ownedRoutes(s, me)) : null;
   let html = `<div class="topbar"><div class="stack" style="gap:2px"><div class="small muted">Newfoundland Rails · ${local ? (local.test ? "quick test" : "pass and play") + (mp && s.phase !== "ended" ? ` · playing as <b>${esc(mp.name)}</b>` : "") : `game <b>${esc(code)}</b>`}</div><div class="status ${mine ? "mine" : ""}" aria-live="polite">${esc(line)}${wait ? ' <span class="muted small">sending…</span>' : ""}</div></div>
     <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}${local ? "" : `<button id="soundBtn" aria-pressed="${soundOn()}" title="Chime when it's your turn">Sound ${soundOn() ? "on" : "off"}</button>`}<button id="homeBtn">Leave to menu</button></div></div>`;
-  if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><span class="muted">Only in quick test.</span></div>`;
+  if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><button id="tEnd">Play it out to the end</button><span class="muted">Only in quick test.</span></div>`;
   if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
   if (netDown && !local) html += `<div class="banner" role="status">${isHost() ? "Lost the connection to the other players. Reconnecting…" : "Lost the connection to the host. Reconnecting…"}</div>`;
   if (err) html += `<div class="banner err" role="alert">${esc(err)}</div>`;
   if (hostSlow && wait) html += hostWaitHTML();
-  if (s.phase === "ended") html += resultsHTML();
-  html += `<!--LEFT--><div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">`;
+  if (s.phase === "ended" && s.final?.length) revealSetup(s); else if (s.phase === "ended") html += resultsHTML();
+  html += `<!--LEFT--><div class="boardbox"><div class="zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zIn" aria-label="Zoom in">+</button></div><div class="boardwrap${zoom > 1 ? " pan" : ""}">${boardSVG()}</div></div><div class="side">${s.phase === "ended" && s.final?.length ? revealHTML() : ""}`;
   // claim panel: a tapped double route shows a box for each open side
   g._opts = {};
   if (selRoute && mp && s.phase !== "ended") {
@@ -1044,11 +1072,11 @@ function render(){
     html += `<div class="panel"><h3>Your tickets</h3><div class="tix cards">${mp.tickets.map(id => { const t = TICKET[id]; return ticketCard(id, { ok:conn(t.from, t.to) }); }).join("")}</div></div>`;
   }
   // players
-  let left = `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums icons">${playerCounts(p)}</div></div><span class="score" data-pid="${p.id}">${p.score}</span></div>`).join("")}</div>
+  let left = `<div class="panel"><h3>Players</h3><div class="players">${s.players.map((p, i) => `<div data-pid="${p.id}" class="pl ${i === s.current && s.phase !== "ended" && s.phase !== "initialTickets" ? "turn" : ""}"><span class="sw" style="background:${SEAT_COLORS[p.color][1]}"></span><div><b>${esc(p.name)}</b>${p.id === me ? ' <span class="muted small">(you)</span>' : ""}${p.id === s.hostId ? ' <span class="muted small">host</span>' : ""}${lastMoveOf(p.id) ? `<div class="lastmove">${esc(lastMoveOf(p.id))}</div>` : ""}<div class="nums icons">${playerCounts(p)}</div></div><span class="score" data-pid="${p.id}">${s.phase === "ended" && REV.score?.[p.id] != null ? REV.score[p.id] : p.score}</span></div>`).join("")}</div>
     ${mp && !isHost() && !local ? `<details class="small"><summary class="muted">Host left?</summary><p class="muted" style="margin:6px 0">Moves are processed on the host's device. If the host closes the game, play pauses until they reopen this page and choose Return to the game.</p></details>` : ""}</div>`;
-  left += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).map(l => `<div>${esc(l)}</div>`).join("")}</div></div>`;
+  left += `<div class="panel"><h3>Game log</h3><div class="log">${s.log.slice(-40).filter(l => !(s.phase === "ended" && REV.steps && !REV.done && l.startsWith("Game over"))).map(l => `<div>${esc(l)}</div>`).join("")}</div></div>`;
   html += `</div>`; html = html.replace("<!--LEFT-->", `<div class="side left">${left}</div>`);
-  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended");
+  g.innerHTML = html; wire(); keepAwake(s.phase !== "ended"); if (s.phase === "ended" && REV.steps) { wireReveal(); revealMap(); }
   fitBoard();
   const bw = g.querySelector(".boardwrap"); if (bw && keep) { bw.scrollLeft = keep[0]; bw.scrollTop = keep[1]; }
   afterRender(); // after the view is restored, so a claim's glide starts from where you were looking
@@ -1089,6 +1117,7 @@ function wire(){
   $("endYes") && ($("endYes").onclick = () => { confirmEnd = false; send({ type:"endNow" }, state.hostId); });
   const cheat = fn => { const s = structuredClone(state); fn(s, s.players.find(p => p.id === me)); state = s; render(); };
   $("tCards") && ($("tCards").onclick = () => cheat((s, p) => { for (let i = 0; i < 10; i++) { const c = CARD_IDS[randInt(CARD_IDS.length - 1)]; p.hand[c] = (p.hand[c] || 0) + 1; } }));
+  $("tEnd") && ($("tEnd").onclick = autoPlayOut);
   $("tWilds") && ($("tWilds").onclick = () => cheat((s, p) => { p.hand.wild = (p.hand.wild || 0) + 4; }));
   $("tTrains") && ($("tTrains").onclick = () => cheat((s, p) => { p.trainsLeft = 3; }));
   $("tTickets") && ($("tTickets").onclick = () => cheat((s, p) => { if (!p.pending?.length && s.ticketDeck.length) { p.pending = s.ticketDeck.splice(-R.ticketsOffered); if (s.turnStep === "start") s.turnStep = "choosingTickets"; } }));
@@ -1343,6 +1372,150 @@ function playerCounts(p){
   const tix = `<span class="tback" aria-hidden="true"><svg viewBox="0 0 46 28"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="3" stroke-dasharray="5 4"/><circle cx="6" cy="21" r="5" fill="#c4472c"/><circle cx="40" cy="7" r="5" fill="#c4472c"/></svg></span>`;
   return `<span class="cnt" title="${p.trainsLeft} trains left">${car}<b>${p.trainsLeft}</b></span><span class="cnt" title="${hc} train card${hc === 1 ? "" : "s"}">${back}<b>${hc}</b></span><span class="cnt" title="${tk} ticket${tk === 1 ? "" : "s"}">${tix}<b>${tk}</b></span><span class="vh">${p.trainsLeft} trains, ${hc} cards, ${tk} tickets</span>`;
 }
+/* ---------------- End-of-game score reveal ----------------
+   Each player's bar starts at the score they earned during play (routes and mountains). Tickets are then revealed one at a
+   time, round-robin across players, each shown on the map (made: the connecting routes glow green; missed: a red line between
+   the towns), then the longest route is traced in gold and its bonus lands. Rows re-sort as leads change. */
+const REV = { key:null };
+const REV_ROW = 74, REV_STEP = 1500;
+function pathRoutes(routes, from, to){
+  // Fewest-routes path between two towns over one player's routes.
+  const adj = {}; routes.forEach(r => { (adj[r.a] ||= []).push([r.b, r.id]); (adj[r.b] ||= []).push([r.a, r.id]); });
+  const prev = { [from]:null }, q = [from];
+  while (q.length) { const n = q.shift(); if (n === to) break; for (const [m, id] of adj[n] || []) if (!(m in prev)) { prev[m] = [n, id]; q.push(m); } }
+  const out = []; let n = to; while (prev[n]) { out.push(prev[n][1]); n = prev[n][0]; } return out;
+}
+function longestTrailRoutes(routes){
+  let best = 0, bestIds = []; const adj = {}, used = new Array(routes.length).fill(false), cur = [];
+  routes.forEach((r, i) => { (adj[r.a] ||= []).push([r.b, i]); (adj[r.b] ||= []).push([r.a, i]); });
+  const dfs = (n, len) => { if (len > best) { best = len; bestIds = cur.map(i => routes[i].id); } for (const [m, i] of adj[n] || []) if (!used[i]) { used[i] = true; cur.push(i); dfs(m, len + routes[i].length); cur.pop(); used[i] = false; } };
+  Object.keys(adj).forEach(n => dfs(n, 0));
+  return bestIds;
+}
+function revealSetup(s){
+  const key = (code || "") + JSON.stringify(s.final.map(f => [f.id, f.total]));
+  if (REV.key === key) return;
+  clearTimeout(REV.timer);
+  const F = Object.fromEntries(s.final.map(f => [f.id, f]));
+  const steps = [], queues = s.players.map(p => [...F[p.id].done.map(id => [id, true]), ...F[p.id].missed.map(id => [id, false])]);
+  // Round-robin, so the lead can change as tickets come in.
+  for (let j = 0; queues.some(q => q[j]); j++) s.players.forEach((p, i) => { const t = queues[i][j]; if (t) steps.push({ kind:"ticket", pid:p.id, tid:t[0], ok:t[1] }); });
+  const top = Math.max(...s.final.map(f => f.longest));
+  if (top > 0) steps.push({ kind:"longest", pids:s.final.filter(f => f.bonus).map(f => f.id), len:top });
+  steps.push({ kind:"end" });
+  const score = Object.fromEntries(s.final.map(f => [f.id, f.routePts + f.mountain]));
+  // Bar scale: the highest score anyone reaches at any point.
+  let hi = Math.max(1, ...Object.values(score)); const sim = { ...score };
+  steps.forEach(st => { if (st.kind === "ticket") sim[st.pid] += (st.ok ? 1 : -1) * TICKET[st.tid].points; if (st.kind === "longest") st.pids.forEach(id => sim[id] += F[id].bonus); hi = Math.max(hi, ...Object.values(sim)); });
+  Object.assign(REV, { key, steps, i:0, score, F, hi:hi * 1.04, made:{}, missed:{}, longest:{}, note:{}, done:false, hl:null });
+  if (zoom > 1) glideTo({ z:1, cx:BOARD.canvas.width / 2, cy:BOARD.canvas.height / 2 });
+  REV.timer = setTimeout(revealNext, 1000);
+}
+function revealNext(){
+  if (!REV.steps || REV.done) return;
+  const st = REV.steps[REV.i++]; if (!st) return;
+  const s = state, owned = id => ownedRoutes(s, id);
+  if (st.kind === "ticket") {
+    const t = TICKET[st.tid], pts = t.points;
+    REV.score[st.pid] += st.ok ? pts : -pts;
+    (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1;
+    REV.note = { [st.pid]:{ text:`${cname(t.from)} – ${cname(t.to)} ${st.ok ? "+" : "−"}${pts}`, ok:st.ok } };
+    REV.hl = { color:SEAT_COLORS[s.players.find(p => p.id === st.pid).color][1], ok:st.ok, towns:[t.from, t.to], routes:st.ok ? pathRoutes(owned(st.pid), t.from, t.to) : [] };
+  } else if (st.kind === "longest") {
+    st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; });
+    REV.note = Object.fromEntries(st.pids.map(id => [id, { text:`Longest route: ${st.len} +${REV.F[id].bonus}`, gold:true }]));
+    REV.hl = { gold:true, routes:st.pids.flatMap(id => longestTrailRoutes(owned(id))), towns:[] };
+  } else { REV.done = true; REV.note = {}; REV.hl = null; render(); return; }
+  revealPaint(true);
+  if (!REV.done) REV.timer = setTimeout(revealNext, st.kind === "longest" ? 2400 : REV_STEP);
+}
+function revealSkip(){
+  clearTimeout(REV.timer);
+  while (!REV.done && REV.steps?.[REV.i]) revealNextSilent();
+}
+function revealNextSilent(){
+  // Apply the next step without waiting (used by Skip).
+  const st = REV.steps[REV.i++]; if (!st) { REV.done = true; return; }
+  if (st.kind === "ticket") { REV.score[st.pid] += (st.ok ? 1 : -1) * TICKET[st.tid].points; (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1; }
+  else if (st.kind === "longest") st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; });
+  else { REV.done = true; REV.note = {}; REV.hl = null; revealPaint(false); render(); }
+}
+function revealReplay(){ REV.key = null; revealSetup(state); render(); }
+const revOrder = () => [...state.players].sort((a, b) => (REV.score[b.id] - REV.score[a.id]) || (state.players.indexOf(a) - state.players.indexOf(b)));
+function revealHTML(){
+  const s = state, order = revOrder(), rank = Object.fromEntries(order.map((p, i) => [p.id, i]));
+  const tkI = ok => `<span class="tb ${ok ? "ok" : "no"}"><svg viewBox="0 0 46 28"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="3" stroke-dasharray="5 4"/><circle cx="6" cy="21" r="5" fill="#c4472c"/><circle cx="40" cy="7" r="5" fill="#c4472c"/></svg><i>${ok ? "✓" : "✕"}</i></span>`;
+  const longI = c => `<svg viewBox="0 0 46 20" class="lgi">${[0, 15, 30].map(x => `<rect x="${x + 1}" y="5" width="13" height="10" rx="2" fill="${c}" stroke="#111" stroke-width="1.3"/>`).join("")}<path d="M3 3H43" stroke="#e8a92a" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  const rows = s.players.map(p => {
+    const c = SEAT_COLORS[p.color][1], sc = REV.score[p.id], n = REV.note[p.id], r = rank[p.id];
+    return `<div class="rrow" data-pid="${p.id}" style="top:${r * REV_ROW}px">
+      <div class="rtop">${REV.done ? `<span class="medal m${r}">${r + 1}</span>` : `<span class="rk">${r + 1}</span>`}<span class="sw" style="background:${c}"></span><b class="rname">${esc(p.name)}</b>
+        <span class="rmini"><span class="mi">${tkI(true)}<b>${REV.made[p.id] || 0}</b></span><span class="mi">${tkI(false)}<b>${REV.missed[p.id] || 0}</b></span>${REV.longest[p.id] ? `<span class="mi">${longI(c)}</span>` : ""}</span>
+        <span class="rscore">${sc}</span></div>
+      <div class="rbar"><span class="fill" style="width:${Math.max(0, sc) / REV.hi * 100}%;background:${c}"></span>${n ? `<span class="rnote ${n.ok === false ? "bad" : n.gold ? "gold" : "good"}">${esc(n.text)}</span>` : ""}</div></div>`;
+  }).join("");
+  return `<div class="panel reveal"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${REV.done ? "Final scores" : "Scoring…"}</h2>${REV.done ? `<button id="revReplay">Replay</button>` : `<button id="revSkip">Skip</button>`}</div>
+    <div class="rrows" style="height:${s.players.length * REV_ROW}px">${rows}</div>
+    ${REV.done ? `<button class="primary" id="newGameBtn">Back to menu</button>` : ""}</div>`;
+}
+// Update the panel in place so bars and rows slide instead of jumping.
+function revealPaint(anim){
+  const box = document.querySelector(".reveal"); if (!box) return;
+  const tmp = document.createElement("div"); tmp.innerHTML = revealHTML(); const fresh = tmp.firstElementChild;
+  if (REV.done) { box.replaceWith(fresh); wireReveal(); revealMap(); return; }
+  fresh.querySelectorAll(".rrow").forEach(nr => {
+    const old = box.querySelector(`.rrow[data-pid="${CSS.escape(nr.dataset.pid)}"]`); if (!old) return;
+    old.style.top = nr.style.top;
+    old.querySelector(".rk").textContent = nr.querySelector(".rk").textContent;
+    old.querySelector(".rmini").innerHTML = nr.querySelector(".rmini").innerHTML;
+    old.querySelector(".fill").style.width = nr.querySelector(".fill").style.width;
+    old.querySelector(".rnote")?.remove(); const note = nr.querySelector(".rnote"); if (note) old.querySelector(".rbar").appendChild(note);
+    const sc = old.querySelector(".rscore"), from = +sc.textContent, to = +nr.querySelector(".rscore").textContent;
+    if (from !== to && anim) { const t0 = performance.now(); const tick = now => { const k = Math.min(1, (now - t0) / 700); sc.textContent = Math.round(from + (to - from) * k); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); sc.classList.remove("bump"); void sc.offsetWidth; sc.classList.add("bump"); }
+    else sc.textContent = to;
+    const ps = document.querySelector(`.score[data-pid="${CSS.escape(nr.dataset.pid)}"]`); if (ps) ps.textContent = to;
+  });
+  revealMap();
+}
+function revealMap(){
+  const svg = document.querySelector(".boardwrap svg"); if (!svg) return;
+  svg.querySelector("#revLayer")?.remove(); const h = REV.hl; if (!h) return;
+  const ns = "http://www.w3.org/2000/svg", g = document.createElementNS(ns, "g"); g.id = "revLayer"; g.setAttribute("pointer-events", "none");
+  let html = "";
+  const stroke = h.gold ? "#f2b632" : "#2fbf63";
+  h.routes.forEach(id => { const P = curve(ROUTE[id]).P; html += `<path d="M${P.map(q => `${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join("L")}" fill="none" stroke="${stroke}" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".55" class="revglow"/>`; });
+  if (h.towns.length === 2 && !h.ok) { const [A, B] = h.towns.map(t => CITY[t]); html += `<path d="M${A.x} ${A.y}L${B.x} ${B.y}" stroke="#d93a2b" stroke-width="9" stroke-dasharray="26 18" stroke-linecap="round" class="revglow"/>`; }
+  h.towns.filter(t => !CITY[t].offMap).forEach(t => { const c = CITY[t]; html += `<circle cx="${c.x}" cy="${c.y}" r="30" fill="${h.ok ? "#2fbf63" : "#d93a2b"}" fill-opacity=".35" stroke="${h.ok ? "#1f8a46" : "#b02a1e"}" stroke-width="6" class="revglow"/>`; });
+  g.innerHTML = html; svg.appendChild(g);
+}
+function wireReveal(){
+  const sk = document.getElementById("revSkip"); if (sk) sk.onclick = () => { revealSkip(); };
+  const rp = document.getElementById("revReplay"); if (rp) rp.onclick = revealReplay;
+  const nb = document.getElementById("newGameBtn"); if (nb) nb.onclick = () => document.getElementById("homeBtn")?.click();
+}
+/* Quick test: play the rest of the game automatically (everyone works toward their tickets), so the end can be tried quickly. */
+function autoPlayOut(){
+  const s = structuredClone(state);
+  for (let guard = 0; s.phase !== "ended" && guard < 600; guard++) {
+    const p = s.players[s.current]; p.hand = { wild:30 };
+    const free = Object.values(ROUTE).filter(r => !s.claims[r.id] && !claimBlock(s, p.id, r) && p.trainsLeft >= trainCost(r));
+    if (!free.length) { try { apply(s, p.id, { type:"pass" }); } catch { break; } continue; }
+    const mine = ownedRoutes(s, p.id), conn = connectedFn(mine);
+    // Next route on the cheapest path toward an unfinished ticket, using own and free routes.
+    let pick = null;
+    for (const tid of p.tickets) {
+      const t = TICKET[tid]; if (conn(t.from, t.to)) continue;
+      const usable = [...mine, ...free], path = pathRoutes(usable, t.from, t.to).filter(id => !s.claims[id]);
+      if (path.length) { pick = ROUTE[path[0]]; break; }
+    }
+    if (!pick || Math.random() < .15) pick = free[Math.floor(Math.random() * free.length)];
+    try { apply(s, p.id, { type:"claim", routeId:pick.id, cards:{ wild:pick.length } }); } catch { try { apply(s, p.id, { type:"drawDeck" }); apply(s, p.id, { type:"drawDeck" }); } catch { break; } }
+  }
+  if (s.phase !== "ended") apply(s, s.hostId, { type:"endNow" });
+  // Don't replay every automatic move as banners and animations.
+  state = s; selRoute = null; evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); render();
+}
+
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
   return `<div class="tcard${ok ? " done" : ""}${on && keep === null ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}"${keep !== null ? ' data-choose="1"' : ""} tabindex="0" role="button" aria-pressed="${keep !== null ? !!keep : on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
@@ -1518,7 +1691,7 @@ function afterRender(){
   evSeen = s.evN || 0;
   for (const p of s.players) {
     const d = p.score - (prevScores[p.id] ?? p.score);
-    if (d > 0) scoreFly[p.id] = { d, t:performance.now() };
+    if (d > 0 && s.phase !== "ended") scoreFly[p.id] = { d, t:performance.now() };
     prevScores[p.id] = p.score;
   }
   // Re-add running score floats after every render, picking up where they were.
