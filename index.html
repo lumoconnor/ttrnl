@@ -1451,7 +1451,11 @@ function revealNext(){
     st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; }); REV.active = null;
     setTimeout(() => st.pids.forEach(id => rowFlash(id, "gold", `+${REV.F[id].bonus}`)), 0);
     REV.hl = { gold:true, routes:st.pids.flatMap(id => longestTrailRoutes(owned(id))), towns:[] };
-  } else { REV.done = true; REV.note = {}; REV.hl = null; render(); return; }
+  } else {
+    REV.done = true; REV.note = {}; REV.hl = null; revealMap();
+    revOrder().forEach((p, i) => { const row = document.querySelector(`.rrow[data-pid="${CSS.escape(p.id)}"]`); if (row) { row.classList.remove("on"); row.style.top = i * REV_ROW + "px"; } });
+    REV.timer = setTimeout(render, 650); return;
+  }
   revealPaint(true);
   if (!REV.done) REV.timer = setTimeout(revealNext, st.kind === "longest" ? 2400 : REV_STEP);
 }
@@ -1512,14 +1516,15 @@ function revealNextSilent(){
 function revealReplay(){ clearTimeout(REV.timer); (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove(); REV.pendingApply = null; REV.key = null; revealSetup(state); render(); }
 const revOrder = () => [...state.players].sort((a, b) => (REV.score[b.id] - REV.score[a.id]) || (state.players.indexOf(a) - state.players.indexOf(b)));
 function revealHTML(){
-  const s = state, order = revOrder(), rank = Object.fromEntries(order.map((p, i) => [p.id, i]));
+  // Rows keep seat order while scoring; they re-sort only once final scores are in and medals are given.
+  const s = state, order = REV.done ? revOrder() : s.players, rank = Object.fromEntries(order.map((p, i) => [p.id, i]));
   const tkI = ok => `<span class="tb ${ok ? "ok" : "no"}"><svg viewBox="0 0 46 28"><path d="M6 21C14 4 30 26 40 7" fill="none" stroke="#8a6e3a" stroke-width="3" stroke-dasharray="5 4"/><circle cx="6" cy="21" r="5" fill="#c4472c"/><circle cx="40" cy="7" r="5" fill="#c4472c"/></svg><i>${ok ? "✓" : "✕"}</i></span>`;
   const longI = c => `<svg viewBox="0 0 46 20" class="lgi">${[0, 15, 30].map(x => `<rect x="${x + 1}" y="5" width="13" height="10" rx="2" fill="${c}" stroke="#111" stroke-width="1.3"/>`).join("")}<path d="M3 3H43" stroke="#e8a92a" stroke-width="2.4" stroke-linecap="round"/></svg>`;
   const rows = s.players.map(p => {
     const c = SEAT_COLORS[p.color][1], sc = REV.score[p.id], n = REV.note[p.id], r = rank[p.id];
     const on = !REV.done && REV.active === p.id;
     return `<div class="rrow${on ? " on" : ""}" data-pid="${p.id}" style="top:${r * REV_ROW}px">
-      <div class="rtop">${REV.done ? `<span class="medal m${r}">${r + 1}</span>` : `<span class="rk">${r + 1}</span>`}<span class="sw" style="background:${c}"></span><b class="rname">${esc(p.name)}</b>
+      <div class="rtop">${REV.done ? `<span class="medal m${r}">${r + 1}</span>` : `<span class="rk"></span>`}<span class="sw" style="background:${c}"></span><b class="rname">${esc(p.name)}</b>
         <span class="rmini"><span class="mi">${tkI(true)}<b>${REV.made[p.id] || 0}</b></span><span class="mi">${tkI(false)}<b>${REV.missed[p.id] || 0}</b></span>${REV.longest[p.id] ? `<span class="mi">${longI(c)}</span>` : ""}</span>
         <span class="rscore">${sc}</span></div>
       <div class="rbar"><span class="fill" style="width:${Math.max(0, sc) / REV.hi * 100}%;background:${c}"></span></div></div>`;
@@ -1536,7 +1541,6 @@ function revealPaint(anim){
   fresh.querySelectorAll(".rrow").forEach(nr => {
     const old = box.querySelector(`.rrow[data-pid="${CSS.escape(nr.dataset.pid)}"]`); if (!old) return;
     old.style.top = nr.style.top; old.classList.toggle("on", nr.classList.contains("on"));
-    old.querySelector(".rk").textContent = nr.querySelector(".rk").textContent;
     old.querySelector(".rmini").innerHTML = nr.querySelector(".rmini").innerHTML;
     old.querySelector(".fill").style.width = nr.querySelector(".fill").style.width;
     const sc = old.querySelector(".rscore"), from = +sc.textContent, to = +nr.querySelector(".rscore").textContent;
