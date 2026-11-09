@@ -854,10 +854,18 @@ function boardSVG(){
     const an = pl && claimAnim[r.id], el = an ? (performance.now() - an) / 1000 : 0;
     if (an) cars.forEach(c => { g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})"><rect x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${CAR_FILL[r.color]}" stroke="${edge}" stroke-width="1.4" opacity=".55"/></g>`; });
     cars.forEach((c, i) => {
-      g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(c.ang)})">${an ? `<g class="ci" style="animation:carIn .26s cubic-bezier(.2,.9,.3,1.35) ${(i * CAR_STEP - el).toFixed(3)}s both">` : ""}<rect class="car" x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${fill}" stroke="${pl ? "#111" : edge}" stroke-width="${pl ? 2.4 : 1.4}"/>`;
+      // Placed cars are drawn as little rail cars (wheels down, so never upside down) with a shadow; open slots stay plain blocks.
+      const ang = pl ? ((c.ang + 90) % 180 + 180) % 180 - 90 : c.ang;
+      g += `<g transform="translate(${f1(c.x)} ${f1(c.y)}) rotate(${f1(ang)})">${an ? `<g class="ci" style="animation:carIn .26s cubic-bezier(.2,.9,.3,1.35) ${(i * CAR_STEP - el).toFixed(3)}s both">` : ""}`;
+      if (pl) {
+        const h = c.len / 2, wx = c.len * .275, ww = c.len * .2;
+        g += `<rect x="${f1(-h + 2)}" y="-5" width="${f1(c.len)}" height="17" rx="4.5" fill="#000" fill-opacity=".3"/>`
+          + `<circle cx="${f1(-wx)}" cy="8.5" r="4" fill="#111"/><circle cx="${f1(wx)}" cy="8.5" r="4" fill="#111"/>`
+          + `<rect class="car" x="${f1(-h)}" y="-9.5" width="${f1(c.len)}" height="17" rx="4.5" fill="${fill}" stroke="#111" stroke-width="2.4"/>`
+          + [-wx, 0, wx].map(x => `<rect x="${f1(x - ww / 2)}" y="-6" width="${f1(ww)}" height="6" rx="1.2" fill="#fff" fill-opacity=".9"/>`).join("");
+      } else g += `<rect class="car" x="${f1(-c.len / 2)}" y="-7" width="${f1(c.len)}" height="14" rx="2.5" fill="${fill}" stroke="${edge}" stroke-width="1.4"/>`;
       if (!pl && r.kind === "ferry" && i < (r.wildsRequired || 0)) g += `<circle r="4.6" fill="url(#wildG)" stroke="#222" stroke-width="1.2"/>`;
       if (!pl && r.kind === "mountain" && c === mid) { const hx = c.len / 2 - 1.6; g += `<path d="M${f1(-hx)} -5.4L${f1(hx)} 5.4M${f1(-hx)} 5.4L${f1(hx)} -5.4" stroke="${edge}" stroke-width="1.8" stroke-linecap="round"/>`; }
-      if (pl) g += `<circle r="3.4" fill="#fff" stroke="#111" stroke-width="1"/>`;
       g += an ? `</g></g>` : `</g>`;
     });
     const d = "M" + cv.P.map(p => `${f1(p.x)} ${f1(p.y)}`).join("L");
