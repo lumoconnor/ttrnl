@@ -187,9 +187,11 @@ button.card{padding:4px 5px}
 @keyframes scoreBump{30%{transform:scale(1.25)}}
 .rbar{position:relative;height:16px;border-radius:8px;background:var(--soft);border:1px solid var(--line);overflow:visible}
 .rbar .fill{display:block;height:100%;border-radius:8px;transition:width .7s cubic-bezier(.3,.7,.3,1);min-width:4px}
-.rnote{position:absolute;left:8px;top:-1px;font-size:11px;font-weight:700;line-height:16px;padding:0 7px;border-radius:8px;color:#fff;white-space:nowrap;animation:noteIn .3s ease}
-.rnote.good{background:#2c7d49}.rnote.bad{background:#c0392b}.rnote.gold{background:#c98a10}
-@keyframes noteIn{from{opacity:0;transform:translateY(4px)}}
+.rflash{position:absolute;inset:0;border-radius:10px;display:grid;place-items:center;pointer-events:none;animation:rowFlash 1.5s ease-out forwards}
+.rflash.good{background:rgba(44,125,73,.5)}.rflash.bad{background:rgba(192,57,43,.5)}.rflash.gold{background:rgba(232,169,42,.5)}
+.rflash b{font-family:var(--display);font-size:30px;line-height:1;text-shadow:0 0 3px #fff,0 0 8px #fff,0 1px 0 #fff}
+.rflash.good b{color:#1f6b3a}.rflash.bad b{color:#a32617}.rflash.gold b{color:#8a5a00}
+@keyframes rowFlash{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}
 .reveal .tb{position:relative;display:inline-grid;place-items:center;width:22px;height:15px;border-radius:3px;background:#f6edd4;border:1.5px solid #8a6e3a;flex:none}
 .reveal .tb svg{width:15px;height:9px}
 .reveal .tb i{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;border-radius:50%;font-style:normal;font-size:8px;font-weight:800;display:grid;place-items:center;color:#fff}
@@ -1441,8 +1443,7 @@ function revealNext(){
       REV.pendingApply = null;
       REV.score[st.pid] += st.ok ? pts : -pts;
       (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1;
-      REV.note = { [st.pid]:{ text:`${cname(t.from)} – ${cname(t.to)} ${st.ok ? "+" : "−"}${pts}`, ok:st.ok } };
-      revealPaint(true);
+      revealPaint(true); rowFlash(st.pid, st.ok ? "good" : "bad", `${st.ok ? "+" : "−"}${pts}`);
     };
     REV.pendingApply = land;
     const flight = revealCard(st, land);
@@ -1450,7 +1451,7 @@ function revealNext(){
     return;
   } else if (st.kind === "longest") {
     st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; }); REV.active = null;
-    REV.note = Object.fromEntries(st.pids.map(id => [id, { text:`Longest route: ${st.len} +${REV.F[id].bonus}`, gold:true }]));
+    setTimeout(() => st.pids.forEach(id => rowFlash(id, "gold", `+${REV.F[id].bonus}`)), 0);
     REV.hl = { gold:true, routes:st.pids.flatMap(id => longestTrailRoutes(owned(id))), towns:[] };
   } else { REV.done = true; REV.note = {}; REV.hl = null; render(); return; }
   revealPaint(true);
@@ -1497,6 +1498,13 @@ function revealCard(st, land){
   REV.cardEl = wrap;
   return T3;
 }
+// The whole player row lights up in green, red or gold with the points gained or lost over it.
+function rowFlash(pid, kind, text){
+  const row = document.querySelector(`.rrow[data-pid="${CSS.escape(pid)}"]`); if (!row) return;
+  row.querySelector(".rflash")?.remove();
+  const f = document.createElement("div"); f.className = `rflash ${kind}`; f.innerHTML = `<b>${esc(text)}</b>`;
+  row.appendChild(f); setTimeout(() => f.remove(), 1500);
+}
 function revealSkip(){
   clearTimeout(REV.timer); (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove();
   if (REV.pendingApply) { const f = REV.pendingApply; REV.pendingApply = null; f(); }
@@ -1522,7 +1530,7 @@ function revealHTML(){
       <div class="rtop">${REV.done ? `<span class="medal m${r}">${r + 1}</span>` : `<span class="rk">${r + 1}</span>`}<span class="sw" style="background:${c}"></span><b class="rname">${esc(p.name)}</b>
         <span class="rmini"><span class="mi">${tkI(true)}<b>${REV.made[p.id] || 0}</b></span><span class="mi">${tkI(false)}<b>${REV.missed[p.id] || 0}</b></span>${REV.longest[p.id] ? `<span class="mi">${longI(c)}</span>` : ""}</span>
         <span class="rscore">${sc}</span></div>
-      <div class="rbar"><span class="fill" style="width:${Math.max(0, sc) / REV.hi * 100}%;background:${c}"></span>${n ? `<span class="rnote ${n.ok === false ? "bad" : n.gold ? "gold" : "good"}">${esc(n.text)}</span>` : ""}</div></div>`;
+      <div class="rbar"><span class="fill" style="width:${Math.max(0, sc) / REV.hi * 100}%;background:${c}"></span></div></div>`;
   }).join("");
   return `<div class="panel reveal"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${REV.done ? "Final scores" : "Scoring…"}</h2>${REV.done ? `<button id="revReplay">Replay</button>` : `<button id="revSkip">Skip</button>`}</div>
     <div class="rrows" style="height:${s.players.length * REV_ROW}px">${rows}</div>
@@ -1539,7 +1547,6 @@ function revealPaint(anim){
     old.querySelector(".rk").textContent = nr.querySelector(".rk").textContent;
     old.querySelector(".rmini").innerHTML = nr.querySelector(".rmini").innerHTML;
     old.querySelector(".fill").style.width = nr.querySelector(".fill").style.width;
-    old.querySelector(".rnote")?.remove(); const note = nr.querySelector(".rnote"); if (note) old.querySelector(".rbar").appendChild(note);
     const sc = old.querySelector(".rscore"), from = +sc.textContent, to = +nr.querySelector(".rscore").textContent;
     if (from !== to && anim) { const t0 = performance.now(); const tick = now => { const k = Math.min(1, (now - t0) / 700); sc.textContent = Math.round(from + (to - from) * k); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); sc.classList.remove("bump"); void sc.offsetWidth; sc.classList.add("bump"); }
     else sc.textContent = to;
