@@ -189,7 +189,7 @@ button.card{padding:4px 5px}
 .rbar .fill{display:block;height:100%;border-radius:8px;transition:width .7s cubic-bezier(.3,.7,.3,1);min-width:4px}
 .rflash{position:absolute;inset:0;border-radius:10px;display:grid;place-items:center;pointer-events:none;animation:rowFlash 1.5s ease-out forwards}
 .rflash.good{background:rgba(44,125,73,.5)}.rflash.bad{background:rgba(192,57,43,.5)}.rflash.gold{background:rgba(232,169,42,.5)}
-.rflash b{font-family:var(--display);font-size:30px;line-height:1;text-shadow:0 0 3px #fff,0 0 8px #fff,0 1px 0 #fff}
+.rflash b{font-family:var(--display);font-size:30px;line-height:1;-webkit-text-stroke:6px #fff;paint-order:stroke fill;text-shadow:none}
 .rflash.good b{color:#1f6b3a}.rflash.bad b{color:#a32617}.rflash.gold b{color:#8a5a00}
 @keyframes rowFlash{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}
 .reveal .tb{position:relative;display:inline-grid;place-items:center;width:22px;height:15px;border-radius:3px;background:#f6edd4;border:1.5px solid #8a6e3a;flex:none}
