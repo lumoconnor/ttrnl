@@ -161,15 +161,13 @@ button.card{padding:4px 5px}
 .ci{transform-box:fill-box;transform-origin:center}
 .claimglow{fill:none;stroke-linecap:round;pointer-events:none}
 /* End-of-game reveal */
-.revcard{position:fixed;z-index:65;width:236px;pointer-events:none;opacity:0;transform:scale(.85);transform-origin:center;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.9,.3,1.2)}
+.revcard{position:fixed;z-index:65;width:150px;pointer-events:none;opacity:0;transform:scale(.85);transform-origin:center;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.9,.3,1.2)}
 .revcard.in{opacity:1;transform:scale(1)}
 .revcard.fly{transition:transform .6s cubic-bezier(.5,0,.3,1),opacity .6s ease-in}
-.revcard .tcard{box-shadow:0 12px 30px #0006;cursor:default;font-size:16px}
-.revcard .tcard .tnames{font-size:18px}
+.revcard .tcard{box-shadow:0 12px 30px #0006;cursor:default}
 .tcard.missed{border-color:#c0392b}
 .tcard .tfail{position:absolute;inset:0;border-radius:8px;background:rgba(192,57,43,.5);display:grid;place-items:center;pointer-events:none}
 .tcard .tfail svg{width:44px;height:44px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
-.revcard .tok svg,.revcard .tfail svg{width:64px;height:64px}
 .fadein{animation:fadeIn .35s ease-out both}
 @keyframes fadeIn{from{opacity:0}}
 .reveal{gap:12px}
@@ -1463,6 +1461,8 @@ function revealCard(st, land){
   const bw = document.querySelector(".boardwrap"), svg = bw?.querySelector("svg"), bar = document.querySelector(`.rrow[data-pid="${CSS.escape(st.pid)}"] .rbar`);
   if (!bw || !svg || !bar || reduceMotion()) { REV.cardT = [setTimeout(land, 900)]; return 900; }
   const wrap = document.createElement("div"); wrap.className = "revcard";
+  // Same size as the ticket cards in the side panel.
+  const ref = document.querySelector(".tix.cards .tcard"); if (ref) wrap.style.width = ref.offsetWidth + "px";
   wrap.innerHTML = ticketCard(st.tid, {});
   const card = wrap.firstElementChild; card.classList.remove("on"); card.removeAttribute("tabindex"); card.removeAttribute("role");
   document.body.appendChild(wrap);
