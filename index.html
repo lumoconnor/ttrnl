@@ -37,6 +37,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:var(--a
 input[type=text]{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
 .muted{color:var(--muted)} .small{font-size:13px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sndtest{flex-basis:100%}.sndtest summary{cursor:pointer;font-weight:600}.sndtest .row{margin-top:6px}
+.sndset{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}.sndset select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
 .stack{display:grid;gap:10px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
 /* Home */
@@ -548,7 +550,7 @@ const docSnap = d => ({ exists: d != null, data: () => (d == null ? undefined : 
 const colSnap = list => ({ docs: list.map(x => ({ id:x.id, data: () => structuredClone(x.data) })) });
 const parentOf = p => p.slice(0, p.lastIndexOf("/"));
 let netDown = false;
-function setNetDown(v){ if (netDown !== v) { netDown = v; if (state) render(); } }
+function setNetDown(v){ if (netDown !== v) { netDown = v; if (state) { play(v ? "blipLow" : "blipHigh"); render(); } } }
 
 class HostStore {
   constructor(code){ this.code = code; this.docs = new Map(); this.local = new Set(); this.conns = new Set(); this.ready = false; }
@@ -1019,7 +1021,7 @@ function render(){
   const g = document.getElementById("game"); const s = state; const mp = myPlayer(); const mi = myIndex();
   const scrollBoard = g.querySelector(".boardwrap"); const keep = scrollBoard ? [scrollBoard.scrollLeft, scrollBoard.scrollTop] : null;
   const logEl = g.querySelector(".log"); const logAtBottom = !logEl || logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
-  if (s.phase === "lobby") { g.innerHTML = lobbyHTML(); wire(); return; }
+  if (s.phase === "lobby") { if (s.players.length > lobbyN && lobbyN) play("knock"); lobbyN = s.players.length; g.innerHTML = lobbyHTML(); wire(); return; }
   if (local?.handoff && s.phase !== "ended" && local.shown !== me) {
     g.innerHTML = `<div class="panel" style="grid-column:1/-1;max-width:520px;margin:40px auto;text-align:center;gap:16px"><div class="small muted">Pass and play</div><h1>Pass the device to ${esc(mp.name)}</h1><p class="muted" style="margin:0">Everyone else, look away. ${esc(mp.name)}, tap below when you're ready to see your hand.</p><button class="primary" id="showHand">I'm ${esc(mp.name)}, show my hand</button><button id="homeBtn">Leave to menu</button></div>`;
     wire(); return;
@@ -1033,8 +1035,8 @@ function render(){
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
   const conn = mp ? connectedFn(ownedRoutes(s, me)) : null;
   let html = `<div class="topbar"><div class="stack" style="gap:2px"><div class="small muted">Newfoundland Rails · ${local ? (local.test ? "quick test" : "pass and play") + (mp && s.phase !== "ended" ? ` · playing as <b>${esc(mp.name)}</b>` : "") : `game <b>${esc(code)}</b>`}</div><div class="status ${mine ? "mine" : ""}" aria-live="polite">${esc(line)}${wait ? ' <span class="muted small">sending…</span>' : ""}</div></div>
-    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}${local ? "" : `<button id="soundBtn" aria-pressed="${soundOn()}" title="Chime when it's your turn">Sound ${soundOn() ? "on" : "off"}</button>`}<button id="homeBtn">Leave to menu</button></div></div>`;
-  if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><button id="tEnd">Play it out to the end</button><span class="muted">Only in quick test.</span></div>`;
+    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<label class="sndset small">Sound <select id="sndMode" aria-label="Sound"><option value="on">On</option><option value="chime">Turn chime only</option><option value="off">Off</option></select></label><label class="sndset small">Volume <select id="sndVol" aria-label="Volume"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label><button id="homeBtn">Leave to menu</button></div></div>`;
+  if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><button id="tEnd">Play it out to the end</button><span class="muted">Only in quick test.</span><details class="sndtest"><summary>Sound test</summary><div class="row">${SND_TEST.map(([k, l]) => `<button data-sfx="${k}">${esc(l)}</button>`).join("")}</div></details></div>`;
   if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
   if (netDown && !local) html += `<div class="banner" role="status">${isHost() ? "Lost the connection to the other players. Reconnecting…" : "Lost the connection to the host. Reconnecting…"}</div>`;
   if (err) html += `<div class="banner err" role="alert">${esc(err)}</div>`;
@@ -1132,6 +1134,7 @@ function wire(){
   const cheat = fn => { const s = structuredClone(state); fn(s, s.players.find(p => p.id === me)); state = s; render(); };
   $("tCards") && ($("tCards").onclick = () => cheat((s, p) => { for (let i = 0; i < 10; i++) { const c = CARD_IDS[randInt(CARD_IDS.length - 1)]; p.hand[c] = (p.hand[c] || 0) + 1; } }));
   $("tEnd") && ($("tEnd").onclick = autoPlayOut);
+  document.querySelectorAll("[data-sfx]").forEach(b => b.onclick = () => { audioUnlock(); setTimeout(() => SND_DEMO[b.dataset.sfx](), 30); });
   $("tWilds") && ($("tWilds").onclick = () => cheat((s, p) => { p.hand.wild = (p.hand.wild || 0) + 4; }));
   $("tTrains") && ($("tTrains").onclick = () => cheat((s, p) => { p.trainsLeft = 3; }));
   $("tTickets") && ($("tTickets").onclick = () => cheat((s, p) => { if (!p.pending?.length && s.ticketDeck.length) { p.pending = s.ticketDeck.splice(-R.ticketsOffered); if (s.turnStep === "start") s.turnStep = "choosingTickets"; } }));
@@ -1312,7 +1315,7 @@ function ticketView(id){
 let tkDeal = { key:null, t:0 };
 // Turn the offered tickets over one at a time; the timing is kept across re-renders.
 function dealTickets(cards, ids){
-  const key = ids.join(); if (tkDeal.key !== key) tkDeal = { key, t:performance.now() };
+  const key = ids.join(); if (tkDeal.key !== key) { tkDeal = { key, t:performance.now() }; if (!reduceMotion()) ids.forEach((_, i) => playAt(i * 300 + 200, "flick")); }
   const age = (performance.now() - tkDeal.t) / 1000;
   return cards.map((h, i) => { const dl = i * .3 - age; return dl > -.6 ? h.replace('<div class="tcard', `<div style="--dl:${dl.toFixed(3)}s" class="deal tcard`) : h; }).join("");
 }
@@ -1361,7 +1364,8 @@ function wireDragClaim(){
       const wr = bw()?.getBoundingClientRect();
       const inMap = wr && ev.clientX >= wr.left && ev.clientX <= wr.right && ev.clientY >= wr.top && ev.clientY <= wr.bottom;
       target = inMap ? routeAt(ev.clientX, ev.clientY, ev.pointerType) : null;
-      res = target ? dragPay(ROUTE[target], c, p) : null;
+      const was = res?.pay && res.id; res = target ? dragPay(ROUTE[target], c, p) : null; if (res) res.id = target;
+      if (res?.pay && was !== target) play("tick");
       tag.hidden = !res; if (res) { tag.textContent = res.pay ? `Pay ${payText(res.pay)}` : res.err; tag.classList.toggle("bad", !res.pay); tag.style.left = ev.clientX + "px"; tag.style.top = (ev.clientY - 92) + "px"; }
       mark();
     };
@@ -1423,7 +1427,7 @@ function revealSetup(s){
   // Bar scale: the highest score anyone reaches at any point.
   let hi = Math.max(1, ...Object.values(score)); const sim = { ...score };
   steps.forEach(st => { if (st.kind === "ticket") sim[st.pid] += (st.ok ? 1 : -1) * TICKET[st.tid].points; if (st.kind === "longest") st.pids.forEach(id => sim[id] += F[id].bonus); hi = Math.max(hi, ...Object.values(sim)); });
-  Object.assign(REV, { key, steps, i:0, score, F, hi:hi * 1.04, made:{}, missed:{}, longest:{}, note:{}, done:false, hl:null });
+  Object.assign(REV, { key, steps, i:0, quiet:false, score, F, hi:hi * 1.04, made:{}, missed:{}, longest:{}, note:{}, done:false, hl:null });
   if (zoom > 1) glideTo({ z:1, cx:BOARD.canvas.width / 2, cy:BOARD.canvas.height / 2 });
   REV.timer = setTimeout(revealNext, 1000);
 }
@@ -1441,7 +1445,7 @@ function revealNext(){
       REV.pendingApply = null;
       REV.score[st.pid] += st.ok ? pts : -pts;
       (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1;
-      revealPaint(true); rowFlash(st.pid, st.ok ? "good" : "bad", `${st.ok ? "+" : "−"}${pts}`);
+      revealPaint(true); rowFlash(st.pid, st.ok ? "good" : "bad", `${st.ok ? "+" : "−"}${pts}`); if (!REV.quiet) play("thunk", Math.min(6, Math.ceil(pts / 3)));
     };
     REV.pendingApply = land;
     const flight = revealCard(st, land);
@@ -1449,11 +1453,12 @@ function revealNext(){
     return;
   } else if (st.kind === "longest") {
     st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; }); REV.active = null;
-    setTimeout(() => st.pids.forEach(id => rowFlash(id, "gold", `+${REV.F[id].bonus}`)), 0);
+    setTimeout(() => st.pids.forEach(id => rowFlash(id, "gold", `+${REV.F[id].bonus}`)), 0); play("whistle"); play("shimmer", .35);
     REV.hl = { gold:true, routes:st.pids.flatMap(id => longestTrailRoutes(owned(id))), towns:[] };
   } else {
     REV.done = true; REV.note = {}; REV.hl = null; revealMap();
     revOrder().forEach((p, i) => { const row = document.querySelector(`.rrow[data-pid="${CSS.escape(p.id)}"]`); if (row) { row.classList.remove("on"); row.style.top = i * REV_ROW + "px"; } });
+    play("slide"); revealFanfare(650);
     REV.timer = setTimeout(render, 650); return;
   }
   revealPaint(true);
@@ -1463,7 +1468,7 @@ function revealNext(){
 // then shrinks into the player's bar. Returns when (ms) the card lands; calls land() then.
 function revealCard(st, land){
   const bw = document.querySelector(".boardwrap"), svg = bw?.querySelector("svg"), bar = document.querySelector(`.rrow[data-pid="${CSS.escape(st.pid)}"] .rbar`);
-  if (!bw || !svg || !bar || reduceMotion()) { REV.cardT = [setTimeout(land, 900)]; return 900; }
+  if (!bw || !svg || !bar || reduceMotion()) { REV.cardT = [playAt(250, st.ok ? "good" : "bad"), setTimeout(land, 900)]; return 900; }
   const wrap = document.createElement("div"); wrap.className = "revcard";
   // Same size as the ticket cards in the side panel.
   const ref = document.querySelector(".tix.cards .tcard"); if (ref) wrap.style.width = ref.offsetWidth + "px";
@@ -1474,10 +1479,11 @@ function revealCard(st, land){
   const mr = bw.getBoundingClientRect(), W = wrap.offsetWidth, m = 14;
   const pick = [Math.min(mr.right, innerWidth) - W - m, Math.max(mr.top, 0) + m];
   wrap.style.left = pick[0] + "px"; wrap.style.top = pick[1] + "px";
-  requestAnimationFrame(() => wrap.classList.add("in"));
+  requestAnimationFrame(() => wrap.classList.add("in")); play("whoosh");
   const T1 = 650, T2 = 1550, T3 = 2150;
   REV.cardT = [
     setTimeout(() => {
+      play(st.ok ? "good" : "bad");
       card.classList.add(st.ok ? "done" : "missed");
       card.insertAdjacentHTML("beforeend", st.ok
         ? `<span class="tok fadein" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1f8a46" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
@@ -1501,8 +1507,13 @@ function rowFlash(pid, kind, text){
   const f = document.createElement("div"); f.className = `rflash ${kind}`; f.innerHTML = `<b>${esc(text)}</b>`;
   row.appendChild(f); setTimeout(() => f.remove(), 1500);
 }
+// Medals ding bronze to silver to gold as they appear, then the winner's jingle.
+function revealFanfare(ms){
+  const n = Math.min(3, state.players.length);
+  REV.sndT = [...Array(n).keys()].reverse().map((i, k) => playAt(ms + 150 + k * 260, "medal", i)).concat(playAt(ms + 150 + n * 260 + 120, "jingle"));
+}
 function revealSkip(){
-  clearTimeout(REV.timer); (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove();
+  (REV.sndT || []).forEach(clearTimeout); clearTimeout(REV.timer); REV.quiet = true; (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove();
   if (REV.pendingApply) { const f = REV.pendingApply; REV.pendingApply = null; f(); }
   while (!REV.done && REV.steps?.[REV.i]) revealNextSilent();
 }
@@ -1511,9 +1522,9 @@ function revealNextSilent(){
   const st = REV.steps[REV.i++]; if (!st) { REV.done = true; return; }
   if (st.kind === "ticket") { REV.score[st.pid] += (st.ok ? 1 : -1) * TICKET[st.tid].points; (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1; }
   else if (st.kind === "longest") st.pids.forEach(id => { REV.score[id] += REV.F[id].bonus; REV.longest[id] = true; });
-  else { REV.done = true; REV.note = {}; REV.hl = null; revealPaint(false); render(); }
+  else { REV.done = true; REV.note = {}; REV.hl = null; revealPaint(false); render(); play("jingle"); }
 }
-function revealReplay(){ clearTimeout(REV.timer); (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove(); REV.pendingApply = null; REV.key = null; revealSetup(state); render(); }
+function revealReplay(){ (REV.sndT || []).forEach(clearTimeout); clearTimeout(REV.timer); (REV.cardT || []).forEach(clearTimeout); REV.cardEl?.remove(); REV.pendingApply = null; REV.key = null; revealSetup(state); render(); }
 const revOrder = () => [...state.players].sort((a, b) => (REV.score[b.id] - REV.score[a.id]) || (state.players.indexOf(a) - state.players.indexOf(b)));
 function revealHTML(){
   // Rows keep seat order while scoring; they re-sort only once final scores are in and medals are given.
@@ -1731,34 +1742,148 @@ function replayGlows(){
     el.style.animation = `handGain 1.2s ease-out ${(-age / 1000).toFixed(3)}s both`;
   }
 }
-/* Your turn: pulse the status line and, when playing online, a soft chime. */
-const soundOn = () => store.get("nfr-sound") !== "off";
-let audioCtx = null;
-addEventListener("pointerdown", () => { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch {} }, true);
-function chime(){
-  if (!audioCtx || !soundOn()) return;
-  const t = audioCtx.currentTime;
-  [[660, 0], [880, .14]].forEach(([hz, d]) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = "sine"; o.frequency.value = hz; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(.12, t + d + .02); g.gain.exponentialRampToValueAtTime(.001, t + d + .45); o.connect(g).connect(audioCtx.destination); o.start(t + d); o.stop(t + d + .5); });
+/* ---------------- Sound ----------------
+   Every sound is synthesized with Web Audio (no files). Browsers only allow audio after a tap, so it unlocks on the first one.
+   Modes: "on" (everything), "chime" (only the your-turn chime), "off". Volume 1–3. Both remembered per device. */
+const sndMode = () => { const v = store.get("nfr-sound"); return v === "off" || v === "chime" ? v : "on"; };
+const soundOn = () => sndMode() !== "off";
+const sndVol = () => +(store.get("nfr-vol") || 1) || 1;
+let audioCtx = null, sndOut = null, noiseBuf = null;
+function audioUnlock(){
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      sndOut = audioCtx.createGain(); sndOut.connect(audioCtx.destination);
+      const n = audioCtx.sampleRate; noiseBuf = audioCtx.createBuffer(1, n, n); const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {}
 }
-let turnPulseAt = 0;
+addEventListener("pointerdown", audioUnlock, true); addEventListener("keydown", audioUnlock, true);
+// A shaped oscillator note: hz (optionally gliding to hz2), at t seconds from now, for dur, with peak volume v.
+function sTone(hz, t, dur, v, { type = "sine", hz2 = null, attack = .008, lp = null, vib = 0 } = {}){
+  const c = audioCtx, t0 = c.currentTime + t, o = c.createOscillator(), g = c.createGain(); let out = g;
+  o.type = type; o.frequency.setValueAtTime(hz, t0); if (hz2) o.frequency.exponentialRampToValueAtTime(hz2, t0 + dur);
+  if (vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 5.5; lg.gain.value = vib; l.connect(lg).connect(o.frequency); l.start(t0); l.stop(t0 + dur + .05); }
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + attack); g.gain.exponentialRampToValueAtTime(.0008, t0 + dur);
+  if (lp) { const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; g.connect(f); out = f; }
+  o.connect(g); out.connect(sndOut); o.start(t0); o.stop(t0 + dur + .05);
+}
+// Filtered noise: swishes, clicks, rustles and rumbles.
+function sNoise(t, dur, v, { type = "bandpass", f = 1500, f2 = null, q = 1, attack = .005 } = {}){
+  const c = audioCtx, t0 = c.currentTime + t, src = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = noiseBuf; src.loop = true; fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f, t0); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + attack); g.gain.exponentialRampToValueAtTime(.0008, t0 + dur);
+  src.connect(fl).connect(g).connect(sndOut); src.start(t0, Math.random() * .5); src.stop(t0 + dur + .05);
+}
+const SFX = {
+  chime(){ sTone(660, 0, .45, .12); sTone(880, .14, .45, .12); },
+  swish(t = 0){ sNoise(t, .2, .09, { f:700, f2:3200, q:.8, attack:.04 }); },
+  flip(t = 0){ sNoise(t, .05, .12, { type:"highpass", f:2500 }); sTone(1400, t, .04, .03, { type:"triangle" }); },
+  sparkle(t = 0){ [1760, 2350, 2790, 3520].forEach((hz, i) => sTone(hz, t + i * .05, .25, .035)); },
+  rustle(){ for (let i = 0; i < 5; i++) sNoise(i * .05 + Math.random() * .02, .07, .06, { f:2600 + Math.random() * 1500, q:1.5 }); },
+  flick(t = 0){ sNoise(t, .06, .08, { f:3500, q:1.2 }); },
+  stamp(){ sTone(140, 0, .18, .22, { hz2:55 }); sNoise(0, .08, .1, { type:"lowpass", f:900 }); },
+  // One wooden clack per car; i raises the pitch a little along the route.
+  clack(t, i){ const hz = 520 * Math.pow(1.045, i); sTone(hz, t, .07, .12, { type:"triangle" }); sTone(hz * 2.7, t, .03, .04, { type:"square", lp:3000 }); sNoise(t, .03, .06, { f:hz * 3, q:3 }); },
+  points(t = 0){ sTone(1046, t, .5, .07); sTone(1568, t + .07, .6, .06); },
+  rumble(t = 0){ sNoise(t, .7, .18, { type:"lowpass", f:160, attack:.12 }); sTone(55, t, .6, .08, { attack:.1 }); },
+  foghorn(t = 0){ sTone(98, t, 1.1, .14, { type:"sawtooth", lp:520, attack:.12 }); sTone(147, t, 1.1, .08, { type:"sawtooth", lp:520, attack:.12 }); },
+  ding(){ sTone(1318, 0, .7, .06); sTone(1976, .05, .6, .03); },
+  whistle(t = 0){ [587, 740, 880].forEach(hz => sTone(hz, t, 1.0, .045, { type:"triangle", attack:.08, vib:4 })); sNoise(t, .9, .025, { f:2200, q:.7, attack:.08 }); },
+  tap(){ sTone(320, 0, .08, .08, { type:"triangle" }); },
+  thud(){ sTone(110, 0, .16, .18, { hz2:70 }); },
+  tick(){ sTone(1900, 0, .03, .04, { type:"triangle" }); },
+  knock(){ [0, .13].forEach(t => { sTone(190, t, .09, .2, { hz2:120 }); sNoise(t, .04, .08, { type:"lowpass", f:1200 }); }); },
+  blipLow(){ sTone(330, 0, .16, .08, { hz2:220 }); },
+  blipHigh(){ sTone(660, 0, .16, .08, { hz2:990 }); },
+  // End-of-game reveal.
+  whoosh(){ sNoise(0, .35, .07, { f:400, f2:2400, q:.6, attack:.12 }); },
+  good(){ sTone(784, 0, .25, .09); sTone(1175, .12, .4, .09); },
+  bad(){ sTone(330, 0, .4, .08, { type:"sawtooth", hz2:180, lp:1200 }); },
+  thunk(n = 3){ sTone(170, 0, .12, .2, { hz2:90 }); for (let i = 0; i < n; i++) sTone(1500 + i * 60, .08 + i * .05, .03, .03, { type:"triangle" }); },
+  shimmer(t = 0){ [1568, 1976, 2349, 2637, 3136].forEach((hz, i) => sTone(hz, t + i * .06, .5, .03)); },
+  slide(){ sNoise(0, .4, .05, { f:500, f2:1400, q:.7, attack:.15 }); },
+  medal(i){ const hz = [784, 988, 1175][i] || 784; sTone(hz, 0, .7, .08); sTone(hz * 2, 0, .4, .025); },
+  jingle(){ [523, 659, 784, 1046].forEach((hz, i) => sTone(hz, i * .12, i === 3 ? .8 : .25, .08, { type:"triangle" })); },
+};
+// Quick test: hear every sound in one place.
+const SND_TEST = [["chime","Your turn"],["pile","Pile draw"],["face","Face-up draw"],["wild","Wild taken"],["rustle","Tickets drawn"],["flick","Ticket flips"],["stamp","Tickets kept"],["claim","Claim (4 cars)"],["mountain","Mountain claim"],["ferry","Ferry claim"],["ding","Ticket connected"],["whistle","Final round"],["tap","Pass"],["thud","Not allowed"],["tick","Drag over route"],["knock","Player joins"],["blipLow","Connection lost"],["blipHigh","Connection back"],["whoosh","Reveal: ticket appears"],["good","Reveal: connected"],["bad","Reveal: failed"],["thunk","Reveal: lands on bar"],["longest","Reveal: longest route"],["slide","Reveal: rows sort"],["medals","Reveal: medals and winner"]];
+const SND_DEMO = new Proxy({
+  pile:() => eventSound({ type:"draw", last:{ from:"deck" } }), face:() => eventSound({ type:"draw", last:{ from:0, c:"red" } }), wild:() => eventSound({ type:"draw", last:{ from:0, c:"wild" } }),
+  flick:() => [0, 300, 600].forEach(t => playAt(t, "flick")),
+  claim:() => eventSound({ type:"claim", routeId:"r014" }), mountain:() => eventSound({ type:"claim", routeId:"r007" }), ferry:() => eventSound({ type:"claim", routeId:"r001" }),
+  thunk:() => play("thunk", 4), longest:() => { play("whistle"); play("shimmer", .35); },
+  medals:() => { const n = 3; [2, 1, 0].forEach((i, k) => playAt(150 + k * 260, "medal", i)); playAt(150 + n * 260 + 120, "jingle"); },
+}, { get:(o, k) => o[k] || (() => play(k)) });
+// Play a sound if it's allowed. kind "chime" plays in chime-only mode too. Throttled so the same sound never stacks.
+const sndLast = {};
+function play(name, ...args){
+  if (!audioCtx || audioCtx.state !== "running" || !SFX[name]) return;
+  const m = sndMode(); if (m === "off" || (m === "chime" && name !== "chime")) return;
+  const now = performance.now(); if (name !== "clack" && now - (sndLast[name] || 0) < 60) return; sndLast[name] = now;
+  sndOut.gain.value = [0, .55, 1, 1.6][sndVol()] || .55;
+  try { SFX[name](...args); } catch {}
+}
+// Schedule a sound for later (ms); returns the timer so the reveal can cancel what's still to come.
+const playAt = (ms, name, ...args) => setTimeout(() => play(name, ...args), ms);
+// The sounds for one game event, in time with its animation.
+function eventSound(e, s){
+  const r = e.routeId && ROUTE[e.routeId];
+  switch (e.type) {
+    case "draw": {
+      const L = e.last; if (!L) return;
+      play("swish"); if (L.c === "wild") play("sparkle", .08);
+      if (L.from !== "deck") play("flip", .45); // the refill turns over on its way to the slot
+      return;
+    }
+    case "ticketsDrawn": return play("rustle");
+    case "kept": return play("stamp");
+    case "pass": return play("tap");
+    case "final": return play("whistle");
+    case "endNow": return play("whistle");
+    case "claim": {
+      // animateClaim has just set when the first car lands.
+      const lead = Math.max(0, (claimAnim[r.id] || performance.now()) - performance.now()) / 1000;
+      for (let i = 0; i < r.length; i++) play("clack", lead + i * CAR_STEP + .12, i);
+      if (r.kind === "mountain") play("rumble", lead);
+      if (r.kind === "ferry") play("foghorn", lead);
+      play("points", lead + r.length * CAR_STEP + .25);
+      return;
+    }
+  }
+}
+/* Your turn: pulse the status line and, when playing online, a soft chime. */
+let turnPulseAt = 0, lobbyN = 0, sndConn = null, sndErr = null;
 function yourTurn(){
   turnPulseAt = performance.now();
-  if (!local) { chime(); try { navigator.vibrate?.(120); } catch {} }
+  if (!local) { play("chime"); try { navigator.vibrate?.(120); } catch {} }
 }
 function afterRender(){
   const s = state; if (!s) return;
   const mp = s.players.find(p => p.id === me), hand = { ...(mp?.hand || {}) };
-  const sb = document.getElementById("soundBtn"); if (sb) sb.onclick = () => { store.set("nfr-sound", soundOn() ? "off" : "on"); render(); };
+  const sm = document.getElementById("sndMode"), sv = document.getElementById("sndVol");
+  if (sm) { sm.value = sndMode(); sm.onchange = () => { store.set("nfr-sound", sm.value); audioUnlock(); play(sm.value === "chime" ? "chime" : "ding"); }; }
+  if (sv) { sv.value = String(sndVol()); sv.onchange = () => { store.set("nfr-vol", sv.value); audioUnlock(); play("ding"); }; }
+  // A mistake (a move the rules refused) gets a soft thud for the person who tried it.
+  const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
+  if (err && err !== sndErr) play("thud"); sndErr = err || null;
+  // A ticket of yours just became connected: a private ding, online only (on a shared screen it would give it away).
+  const myConn = mp?.tickets ? (f => mp.tickets.filter(id => f(TICKET[id].from, TICKET[id].to)))(connectedFn(ownedRoutes(s, me))) : [];
+  if (sndConn && sndConn.who === me && !local && myConn.some(id => !sndConn.ids.includes(id))) playAt(900, "ding");
+  sndConn = { who:me, ids:myConn };
   if (evSeen == null) { evSeen = s.evN || 0; prevScores = Object.fromEntries(s.players.map(p => [p.id, p.score])); prevHand = hand; return; }
   // Colours you gained since the last render, for your own pile draws.
   const gained = []; if (prevHandOf === me) for (const [c, n] of Object.entries(hand)) for (let k = (prevHand?.[c] || 0); k < n; k++) gained.push(c);
   prevHand = hand; prevHandOf = me;
-  for (const e of (s.events || []).filter(e => e.n > evSeen)) {
+  const fresh = (s.events || []).filter(e => e.n > evSeen);
+  for (const [k, e] of fresh.entries()) {
     const t = evText(e), pl = s.players.find(p => p.id === e.pid);
     if (t && !(e.type === "kept" && e.initial)) banner(e.type === "draw" ? `draw-${e.pid}-${e.n - (e.face.length + e.blind) + 1}` : `ev-${e.n}`, t[0], t[1], SEAT_COLORS[pl?.color ?? 0][1]);
     if (e.type === "claim") animateClaim(e.routeId);
     if (e.type === "draw") showDraw(e, gained);
     if (e.type === "turn" && e.pid === me && s.phase !== "ended") yourTurn();
+    if (fresh.length - k <= 3) eventSound(e, s); // after a catch-up, only the last few moves make a sound
   }
   replayGlows();
   const st = document.querySelector(".status.mine"); const pa = performance.now() - turnPulseAt; if (st && pa < 1800) { st.classList.add("pulse"); st.style.animationDelay = `${(-pa / 1000).toFixed(3)}s`; }
