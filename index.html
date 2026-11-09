@@ -1035,7 +1035,7 @@ function render(){
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
   const conn = mp ? connectedFn(ownedRoutes(s, me)) : null;
   let html = `<div class="topbar"><div class="stack" style="gap:2px"><div class="small muted">Newfoundland Rails · ${local ? (local.test ? "quick test" : "pass and play") + (mp && s.phase !== "ended" ? ` · playing as <b>${esc(mp.name)}</b>` : "") : `game <b>${esc(code)}</b>`}</div><div class="status ${mine ? "mine" : ""}" aria-live="polite">${esc(line)}${wait ? ' <span class="muted small">sending…</span>' : ""}</div></div>
-    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<label class="sndset small">Sound <select id="sndMode" aria-label="Sound"><option value="on">On</option><option value="chime">Turn chime only</option><option value="off">Off</option></select></label><label class="sndset small">Volume <select id="sndVol" aria-label="Volume"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label><button id="homeBtn">Leave to menu</button></div></div>`;
+    <div class="row">${isHost() || local ? (s.phase === "ended" ? "" : confirmEnd ? `<span class="small">End now and score the game as it stands?</span><button class="primary" id="endYes">End game</button><button id="endNo">Keep playing</button>` : `<button id="endBtn">End game</button>`) : ""}<label class="sndset small">Sound <select id="sndMode" aria-label="Sound"><option value="on">On</option><option value="chime">Turn toot only</option><option value="off">Off</option></select></label><label class="sndset small">Volume <select id="sndVol" aria-label="Volume"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label><button id="homeBtn">Leave to menu</button></div></div>`;
   if (local?.test && s.phase !== "ended") html += `<div class="banner row small"><b>Test tools</b><button id="tCards">Give ${esc(mp?.name || "player")} 10 cards</button><button id="tWilds">Give 4 wilds</button><button id="tTrains">Set ${esc(mp?.name || "player")} to 3 trains</button><button id="tTickets">Draw tickets (any time)</button><button id="tEnd">Play it out to the end</button><span class="muted">Only in quick test.</span><details class="sndtest"><summary>Sound test</summary><div class="row">${SND_TEST.map(([k, l]) => `<button data-sfx="${k}">${esc(l)}</button>`).join("")}</div></details></div>`;
   if (s.phase === "finalRound") html += `<div class="banner final">Final round: ${s.finalTurnsLeft} turn${s.finalTurnsLeft === 1 ? "" : "s"} left.</div>`;
   if (netDown && !local) html += `<div class="banner" role="status">${isHost() ? "Lost the connection to the other players. Reconnecting…" : "Lost the connection to the host. Reconnecting…"}</div>`;
@@ -1445,7 +1445,7 @@ function revealNext(){
       REV.pendingApply = null;
       REV.score[st.pid] += st.ok ? pts : -pts;
       (st.ok ? REV.made : REV.missed)[st.pid] = ((st.ok ? REV.made : REV.missed)[st.pid] || 0) + 1;
-      revealPaint(true); rowFlash(st.pid, st.ok ? "good" : "bad", `${st.ok ? "+" : "−"}${pts}`); if (!REV.quiet) play("thunk", Math.min(6, Math.ceil(pts / 3)));
+      revealPaint(true); rowFlash(st.pid, st.ok ? "good" : "bad", `${st.ok ? "+" : "−"}${pts}`); if (!REV.quiet) play("thunk", Math.min(6, Math.ceil(pts / 3)), !st.ok);
     };
     REV.pendingApply = land;
     const flight = revealCard(st, land);
@@ -1777,7 +1777,8 @@ function sNoise(t, dur, v, { type = "bandpass", f = 1500, f2 = null, q = 1, atta
   src.connect(fl).connect(g).connect(sndOut); src.start(t0, Math.random() * .5); src.stop(t0 + dur + .05);
 }
 const SFX = {
-  chime(){ sTone(660, 0, .45, .12); sTone(880, .14, .45, .12); },
+  // Turn start: a quick two-blast train horn, "toot toot".
+  chime(){ [0, .26].forEach(t => [311, 370, 466].forEach(hz => sTone(hz, t, .2, .06, { type:"sawtooth", lp:1400, attack:.02 }))); },
   swish(t = 0){ sNoise(t, .2, .09, { f:700, f2:3200, q:.8, attack:.04 }); },
   flip(t = 0){ sNoise(t, .05, .12, { type:"highpass", f:2500 }); sTone(1400, t, .04, .03, { type:"triangle" }); },
   sparkle(t = 0){ [1760, 2350, 2790, 3520].forEach((hz, i) => sTone(hz, t + i * .05, .25, .035)); },
@@ -1788,7 +1789,6 @@ const SFX = {
   clack(t, i){ const hz = 520 * Math.pow(1.045, i); sTone(hz, t, .07, .12, { type:"triangle" }); sTone(hz * 2.7, t, .03, .04, { type:"square", lp:3000 }); sNoise(t, .03, .06, { f:hz * 3, q:3 }); },
   points(t = 0){ sTone(1046, t, .5, .07); sTone(1568, t + .07, .6, .06); },
   rumble(t = 0){ sNoise(t, .7, .18, { type:"lowpass", f:160, attack:.12 }); sTone(55, t, .6, .08, { attack:.1 }); },
-  foghorn(t = 0){ sTone(98, t, 1.1, .14, { type:"sawtooth", lp:520, attack:.12 }); sTone(147, t, 1.1, .08, { type:"sawtooth", lp:520, attack:.12 }); },
   ding(){ sTone(1318, 0, .7, .06); sTone(1976, .05, .6, .03); },
   whistle(t = 0){ [587, 740, 880].forEach(hz => sTone(hz, t, 1.0, .045, { type:"triangle", attack:.08, vib:4 })); sNoise(t, .9, .025, { f:2200, q:.7, attack:.08 }); },
   tap(){ sTone(320, 0, .08, .08, { type:"triangle" }); },
@@ -1801,19 +1801,19 @@ const SFX = {
   whoosh(){ sNoise(0, .35, .07, { f:400, f2:2400, q:.6, attack:.12 }); },
   good(){ sTone(784, 0, .25, .09); sTone(1175, .12, .4, .09); },
   bad(){ sTone(330, 0, .4, .08, { type:"sawtooth", hz2:180, lp:1200 }); },
-  thunk(n = 3){ sTone(170, 0, .12, .2, { hz2:90 }); for (let i = 0; i < n; i++) sTone(1500 + i * 60, .08 + i * .05, .03, .03, { type:"triangle" }); },
+  thunk(n = 3, down = false){ sTone(170, 0, .12, .2, { hz2:90 }); for (let i = 0; i < n; i++) sTone((down ? 1300 : 1500) + (down ? -i : i) * 60, .08 + i * .05, .03, .03, { type:"triangle" }); },
   shimmer(t = 0){ [1568, 1976, 2349, 2637, 3136].forEach((hz, i) => sTone(hz, t + i * .06, .5, .03)); },
   slide(){ sNoise(0, .4, .05, { f:500, f2:1400, q:.7, attack:.15 }); },
   medal(i){ const hz = [784, 988, 1175][i] || 784; sTone(hz, 0, .7, .08); sTone(hz * 2, 0, .4, .025); },
   jingle(){ [523, 659, 784, 1046].forEach((hz, i) => sTone(hz, i * .12, i === 3 ? .8 : .25, .08, { type:"triangle" })); },
 };
 // Quick test: hear every sound in one place.
-const SND_TEST = [["chime","Your turn"],["pile","Pile draw"],["face","Face-up draw"],["wild","Wild taken"],["rustle","Tickets drawn"],["flick","Ticket flips"],["stamp","Tickets kept"],["claim","Claim (4 cars)"],["mountain","Mountain claim"],["ferry","Ferry claim"],["ding","Ticket connected"],["whistle","Final round"],["tap","Pass"],["thud","Not allowed"],["tick","Drag over route"],["knock","Player joins"],["blipLow","Connection lost"],["blipHigh","Connection back"],["whoosh","Reveal: ticket appears"],["good","Reveal: connected"],["bad","Reveal: failed"],["thunk","Reveal: lands on bar"],["longest","Reveal: longest route"],["slide","Reveal: rows sort"],["medals","Reveal: medals and winner"]];
+const SND_TEST = [["chime","Turn starts"],["pile","Pile draw"],["face","Face-up draw"],["wild","Wild taken"],["rustle","Tickets drawn"],["flick","Ticket flips"],["stamp","Tickets kept"],["claim","Claim (4 cars)"],["mountain","Mountain claim"],["ding","Ticket connected"],["whistle","Final round"],["tap","Pass"],["thud","Not allowed"],["tick","Drag over route"],["knock","Player joins"],["blipLow","Connection lost"],["blipHigh","Connection back"],["whoosh","Reveal: ticket appears"],["good","Reveal: connected"],["bad","Reveal: failed"],["thunk","Reveal: lands on bar"],["thunkDown","Reveal: missed lands"],["longest","Reveal: longest route"],["slide","Reveal: rows sort"],["medals","Reveal: medals and winner"]];
 const SND_DEMO = new Proxy({
   pile:() => eventSound({ type:"draw", last:{ from:"deck" } }), face:() => eventSound({ type:"draw", last:{ from:0, c:"red" } }), wild:() => eventSound({ type:"draw", last:{ from:0, c:"wild" } }),
   flick:() => [0, 300, 600].forEach(t => playAt(t, "flick")),
-  claim:() => eventSound({ type:"claim", routeId:"r014" }), mountain:() => eventSound({ type:"claim", routeId:"r007" }), ferry:() => eventSound({ type:"claim", routeId:"r001" }),
-  thunk:() => play("thunk", 4), longest:() => { play("whistle"); play("shimmer", .35); },
+  claim:() => eventSound({ type:"claim", routeId:"r014" }), mountain:() => eventSound({ type:"claim", routeId:"r007" }), 
+  thunk:() => play("thunk", 4), thunkDown:() => play("thunk", 4, true), longest:() => { play("whistle"); play("shimmer", .35); },
   medals:() => { const n = 3; [2, 1, 0].forEach((i, k) => playAt(150 + k * 260, "medal", i)); playAt(150 + n * 260 + 120, "jingle"); },
 }, { get:(o, k) => o[k] || (() => play(k)) });
 // Play a sound if it's allowed. kind "chime" plays in chime-only mode too. Throttled so the same sound never stacks.
@@ -1834,7 +1834,6 @@ function eventSound(e, s){
     case "draw": {
       const L = e.last; if (!L) return;
       play("swish"); if (L.c === "wild") play("sparkle", .08);
-      if (L.from !== "deck") play("flip", .45); // the refill turns over on its way to the slot
       return;
     }
     case "ticketsDrawn": return play("rustle");
@@ -1847,7 +1846,6 @@ function eventSound(e, s){
       const lead = Math.max(0, (claimAnim[r.id] || performance.now()) - performance.now()) / 1000;
       for (let i = 0; i < r.length; i++) play("clack", lead + i * CAR_STEP + .12, i);
       if (r.kind === "mountain") play("rumble", lead);
-      if (r.kind === "ferry") play("foghorn", lead);
       play("points", lead + r.length * CAR_STEP + .25);
       return;
     }
@@ -1857,7 +1855,8 @@ function eventSound(e, s){
 let turnPulseAt = 0, lobbyN = 0, sndConn = null, sndErr = null;
 function yourTurn(){
   turnPulseAt = performance.now();
-  if (!local) { play("chime"); try { navigator.vibrate?.(120); } catch {} }
+  if (!local || sndMode() === "on") play("chime");
+  if (!local) { try { navigator.vibrate?.(120); } catch {} }
 }
 function afterRender(){
   const s = state; if (!s) return;
@@ -1883,6 +1882,7 @@ function afterRender(){
     if (e.type === "claim") animateClaim(e.routeId);
     if (e.type === "draw") showDraw(e, gained);
     if (e.type === "turn" && e.pid === me && s.phase !== "ended") yourTurn();
+    else if (e.type === "turn" && s.phase !== "ended" && sndMode() === "on" && fresh.length - k <= 3) play("chime");
     if (fresh.length - k <= 3) eventSound(e, s); // after a catch-up, only the last few moves make a sound
   }
   replayGlows();
