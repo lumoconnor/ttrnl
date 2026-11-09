@@ -75,6 +75,15 @@ button,.card,.pile,.tk,label{touch-action:manipulation}
 .boardwrap.hov{cursor:pointer}
 .rt.hov .car{stroke:#e8431a;stroke-width:3.2}
 .rt.sel .car{stroke:#e8431a;stroke-width:4}
+/* EXPERIMENT drag-to-claim */
+.boardwrap.dragging .rt{opacity:.3;transition:opacity .12s}
+.boardwrap.dragging .rt.dragok,.boardwrap.dragging .rt.own{opacity:1}
+.rt.dragok .car{stroke:#fff;stroke-width:3}
+.rt.dragon .car{stroke:#e8431a;stroke-width:4.5}
+.card.dragghost{position:fixed;z-index:70;pointer-events:none;width:52px;height:72px;transform:translate(-50%,-112%) rotate(-6deg) scale(.85);box-shadow:0 10px 24px #0007;opacity:.95}
+.dragtag{position:fixed;z-index:71;pointer-events:none;transform:translate(-50%,-150%);background:#1c2830f2;color:#fff;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;white-space:nowrap}
+.dragtag.bad{background:#8a2a1af2}
+.handcards.candrag .card{cursor:grab;touch-action:none}
 .city{font-family:var(--display);font-weight:700;font-size:25px;fill:#1f2a2e;paint-order:stroke;stroke:#ffffffd9;stroke-width:6px;stroke-linejoin:round;pointer-events:none}
 .tag{font-family:var(--display);font-weight:700;font-size:22px;fill:#fff;pointer-events:none}
 .side{display:grid;gap:12px;min-width:0}
@@ -1019,7 +1028,7 @@ function render(){
   // hand
   if (mp?.hand) {
     const hand = CARD_IDS.filter(c => mp.hand[c]);
-    html += `<div class="panel"><h3>Your hand · ${handCount(mp)} cards · ${mp.trainsLeft} trains</h3><div class="cards handcards">${hand.length ? hand.map(c => `<div class="card c-${c}" data-hc="${c}" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span><span class="n">${mp.hand[c]}</span></div>`).join("") : '<span class="muted small">No cards yet.</span>'}</div><div class="small muted">Tap a route on the map to claim it.</div></div>`;
+    html += `<div class="panel"><h3>Your hand · ${handCount(mp)} cards · ${mp.trainsLeft} trains</h3><div class="cards handcards">${hand.length ? hand.map(c => `<div class="card c-${c}" data-hc="${c}" style="background:${CARD[c].hex}"><span class="lbl">${esc(CARD[c].label)}</span><span class="n">${mp.hand[c]}</span></div>`).join("") : '<span class="muted small">No cards yet.</span>'}</div><div class="small muted">${DRAG_CLAIM ? "Tap a route, or drag a card onto one, to claim it." : "Tap a route on the map to claim it."}</div></div>`;
   }
   // tickets
   if (mp?.tickets?.length) {
@@ -1063,6 +1072,7 @@ function resultsHTML(){
   <button class="primary" id="newGameBtn">Back to menu</button></div>`;
 }
 function wire(){
+  if (DRAG_CLAIM) wireDragClaim();
   const g = document.getElementById("game"); const $ = id => document.getElementById(id);
   $("showHand") && ($("showHand").onclick = () => { local.shown = me; render(); });
   $("endBtn") && ($("endBtn").onclick = () => { confirmEnd = true; render(); });
@@ -1258,6 +1268,64 @@ function dealTickets(cards, ids){
 function payCards(o){
   return Object.entries(o).map(([c, n]) => `<span class="paygrp">${Array.from({ length:n }, (_, k) => `<span class="mini c-${c}" style="background:${CARD[c].hex}">${k === n - 1 ? `<b>${n}</b>` : ""}</span>`).join("")}</span>`).join("");
 }
+/* ---------------- EXPERIMENT: drag a hand card onto a route to claim it ----------------
+   Self-contained so it can be rolled back: remove this block, its CSS, the wire() hook and the "candrag" class.
+   Turn it off for a visit with ?drag=0. */
+const DRAG_CLAIM = new URLSearchParams(location.search).get("drag") !== "0";
+// What dropping colour c on route r would pay, or why it can't.
+function dragPay(r, c, p){
+  const s = state, L = r.length, need = r.kind === "ferry" ? (r.wildsRequired || 0) : 0, hand = p.hand || {}, w = hand.wild || 0;
+  const block = claimBlock(s, p.id, r); if (block) return { err:"Taken" };
+  if (p.trainsLeft < trainCost(r)) return { err:`Needs ${trainCost(r)} trains` };
+  if (c !== "wild" && r.color !== "gray" && r.color !== c) return { err:`${CARD[r.color].label} route` };
+  if (c === "wild") return w >= L ? { pay:{ wild:L } } : { err:`Need ${L - w} more` };
+  const use = Math.min(hand[c] || 0, L - need), wilds = L - use;
+  if (wilds > w) return { err:`Need ${wilds - w} more` };
+  return { pay:{ [c]:use, ...(wilds ? { wild:wilds } : {}) } };
+}
+const payText = o => Object.entries(o).map(([c, n]) => `${n} ${CARD[c].label.toLowerCase()}`).join(" + ");
+function wireDragClaim(){
+  const s = state, p = s?.players.find(x => x.id === me), box = document.querySelector(".handcards");
+  const can = p && s.players[s.current]?.id === me && s.turnStep === "start" && (s.phase === "playing" || s.phase === "finalRound") && !pending();
+  if (!box) return; box.classList.toggle("candrag", !!can); if (!can) return;
+  box.querySelectorAll("[data-hc]").forEach(el => el.onpointerdown = e => {
+    if (e.button > 0) return;
+    const c = el.dataset.hc, x0 = e.clientX, y0 = e.clientY, id = e.pointerId;
+    let ghost = null, tag = null, target = null, res = null;
+    const bw = () => document.querySelector(".boardwrap");
+    const mark = () => {
+      // Light up every route this colour can pay for (cheap to recompute; survives a re-render mid-drag).
+      const w = bw(); if (!w) return; w.classList.add("dragging");
+      w.querySelectorAll(".rt[data-route]").forEach(g => { const r = ROUTE[g.dataset.route]; g.classList.toggle("dragok", !s.claims[r.id] && !!dragPay(r, c, p).pay); g.classList.toggle("dragon", r.id === target); });
+    };
+    const move = ev => {
+      if (ev.pointerId !== id) return;
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+        ghost = el.cloneNode(true); ghost.classList.add("dragghost"); ghost.querySelectorAll(".gainn").forEach(n => n.remove()); ghost.style.animation = "none"; document.body.appendChild(ghost);
+        tag = document.createElement("div"); tag.className = "dragtag"; tag.hidden = true; document.body.appendChild(tag);
+      }
+      ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px";
+      const wr = bw()?.getBoundingClientRect();
+      const inMap = wr && ev.clientX >= wr.left && ev.clientX <= wr.right && ev.clientY >= wr.top && ev.clientY <= wr.bottom;
+      target = inMap ? routeAt(ev.clientX, ev.clientY, ev.pointerType) : null;
+      res = target ? dragPay(ROUTE[target], c, p) : null;
+      tag.hidden = !res; if (res) { tag.textContent = res.pay ? `Pay ${payText(res.pay)}` : res.err; tag.classList.toggle("bad", !res.pay); tag.style.left = ev.clientX + "px"; tag.style.top = (ev.clientY - 92) + "px"; }
+      mark();
+    };
+    const end = ev => {
+      if (ev.pointerId !== id) return;
+      removeEventListener("pointermove", move); removeEventListener("pointerup", end); removeEventListener("pointercancel", end);
+      const w = bw(); w?.classList.remove("dragging"); w?.querySelectorAll(".dragok,.dragon").forEach(g => g.classList.remove("dragok", "dragon"));
+      tag?.remove();
+      if (ghost && ev.type === "pointerup" && target && res?.pay) { ghost.remove(); selRoute = null; send({ type:"claim", routeId:target, cards:res.pay }); return; }
+      // Not claimed: the card slides back to the hand.
+      if (ghost) { const b = el.getBoundingClientRect(); ghost.style.transition = "left .25s ease, top .25s ease, opacity .25s"; ghost.style.left = b.left + b.width / 2 + "px"; ghost.style.top = b.top + b.height * .6 + "px"; ghost.style.opacity = "0"; setTimeout(() => ghost.remove(), 260); }
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", end); addEventListener("pointercancel", end);
+  });
+}
+/* ---------------- end EXPERIMENT ---------------- */
 function ticketCard(id, { ok = false, keep = null } = {}){
   const t = TICKET[id], A = CITY[t.from], B = CITY[t.to], on = focusTk?.id === id;
   return `<div class="tcard${ok ? " done" : ""}${on && keep === null ? " on" : ""}${keep ? " kept" : ""}" data-tk="${id}"${keep !== null ? ' data-choose="1"' : ""} tabindex="0" role="button" aria-pressed="${keep !== null ? !!keep : on}" aria-label="${esc(cname(t.from))} to ${esc(cname(t.to))}, ${t.points} points${ok ? ", connected" : ""}">
