@@ -1528,7 +1528,7 @@ function ticketCard(id, { ok = false, keep = null } = {}){
     <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}L${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
 <span class="tpts">${t.points}<small>pts</small></span></span>
     <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
-    ${ok ? `<span class="tok" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
+    ${ok ? `<span class="tok" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1f8a46" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
 
   </div>`;
 }
