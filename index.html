@@ -225,7 +225,9 @@ button.card{padding:4px 5px}
 .tcard .tpts{display:flex;align-items:baseline;gap:2px;line-height:1;color:#8a3b26;font-family:var(--display);font-weight:700;font-size:18px}
 .tcard .tpts small{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a6e3a}
 .tcard.done{border-color:#2c7d49}
-.tcard .tok{grid-column:1/-1;font-size:11px;font-weight:700;color:#2c7d49;margin-top:-2px}
+/* Connected ticket: a 50% green wash over the card with a big check */
+.tcard .tok{position:absolute;inset:0;border-radius:8px;background:rgba(44,125,73,.5);display:grid;place-items:center;pointer-events:none}
+.tcard .tok svg{width:44px;height:44px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
 .tcard.on{outline:3px solid var(--accent);outline-offset:2px}
 .tcard.kept{outline:3px solid #2a6fd1;outline-offset:2px}
 .tk{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
@@ -1526,7 +1528,7 @@ function ticketCard(id, { ok = false, keep = null } = {}){
     <span class="tleft"><svg class="tmap" viewBox="8 5 1705 1949" aria-hidden="true"><use href="#coastP"/><path d="M${A.x} ${A.y}L${B.x} ${B.y}" fill="none" stroke="${ok ? "#2c7d49" : "#8a3b26"}" stroke-width="30" stroke-dasharray="70 45" stroke-linecap="round"/><circle cx="${A.x}" cy="${A.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/><circle cx="${B.x}" cy="${B.y}" r="80" fill="#c4472c" stroke="#fff" stroke-width="18"/></svg>
 <span class="tpts">${t.points}<small>pts</small></span></span>
     <div class="tnames"><span>${esc(cname(t.from))}</span><span class="to">to ${esc(cname(t.to))}</span></div>
-    ${ok ? `<span class="tok">✓ Connected</span>` : ""}
+    ${ok ? `<span class="tok" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
 
   </div>`;
 }
