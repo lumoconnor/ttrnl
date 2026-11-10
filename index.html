@@ -860,7 +860,7 @@ async function send(action, asId){
       const r = action.type === "claim" && ROUTE[action.routeId];
       const hold = r ? Math.min(3200, 600 + r.length * CAR_STEP * 1000 + 900) : 1100;
       local.holding = true; render();
-      setTimeout(() => { if (!local) return; local.holding = false; me = actingId(state); render(); }, hold);
+      setTimeout(() => { if (!local) return; local.holding = false; me = actingId(state); if ((state.phase === "playing" || state.phase === "finalRound") && sndMode() === "on") play("chime"); render(); }, hold);
       return;
     }
     me = next; render(); return;
@@ -1855,17 +1855,17 @@ function eventSound(e, s){
   }
 }
 /* Your turn: pulse the status line and, when playing online, a soft chime. */
-let turnPulseAt = 0, lobbyN = 0, sndConn = null, sndErr = null;
+let tootDelay = () => 0, turnPulseAt = 0, lobbyN = 0, sndConn = null, sndErr = null;
 function yourTurn(){
   turnPulseAt = performance.now();
-  if (!local || sndMode() === "on") play("chime");
+  if (!local) playAt(tootDelay(), "chime");
   if (!local) { try { navigator.vibrate?.(120); } catch {} }
 }
 function afterRender(){
   const s = state; if (!s) return;
   const mp = s.players.find(p => p.id === me), hand = { ...(mp?.hand || {}) };
   const sm = document.getElementById("sndMode"), sv = document.getElementById("sndVol");
-  if (sm) { sm.value = sndMode(); sm.onchange = () => { store.set("nfr-sound", sm.value); audioUnlock(); play(sm.value === "chime" ? "chime" : "ding"); }; }
+  if (sm) { sm.value = sndMode(); sm.onchange = () => { store.set("nfr-sound", sm.value); audioUnlock(); play("ding"); }; }
   if (sv) { sv.value = String(sndVol()); sv.onchange = () => { store.set("nfr-vol", sv.value); audioUnlock(); play("ding"); }; }
   // A mistake (a move the rules refused) gets a soft thud for the person who tried it.
   const err = (s.errors?.[me]?.seq === lastSent && lastSent) ? s.errors[me].msg : sendError;
@@ -1879,13 +1879,15 @@ function afterRender(){
   const gained = []; if (prevHandOf === me) for (const [c, n] of Object.entries(hand)) for (let k = (prevHand?.[c] || 0); k < n; k++) gained.push(c);
   prevHand = hand; prevHandOf = me;
   const fresh = (s.events || []).filter(e => e.n > evSeen);
+  // The turn toot waits until the move that ended the last turn has finished playing out (card in hand, cars down).
+  tootDelay = () => { const c = fresh.find(x => x.type === "claim"); if (c && ROUTE[c.routeId]) return Math.max(0, (claimAnim[c.routeId] || performance.now()) - performance.now()) + ROUTE[c.routeId].length * CAR_STEP * 1000 + 700; return fresh.some(x => x.type === "draw") ? 900 : 250; };
   for (const [k, e] of fresh.entries()) {
     const t = evText(e), pl = s.players.find(p => p.id === e.pid);
     if (t && !(e.type === "kept" && e.initial)) banner(e.type === "draw" ? `draw-${e.pid}-${e.n - (e.face.length + e.blind) + 1}` : `ev-${e.n}`, t[0], t[1], SEAT_COLORS[pl?.color ?? 0][1]);
     if (e.type === "claim") animateClaim(e.routeId);
     if (e.type === "draw") showDraw(e, gained);
     if (e.type === "turn" && e.pid === me && s.phase !== "ended") yourTurn();
-    else if (e.type === "turn" && s.phase !== "ended" && sndMode() === "on" && fresh.length - k <= 3) play("chime");
+    else if (e.type === "turn" && !local && s.phase !== "ended" && sndMode() === "on" && fresh.length - k <= 3) playAt(tootDelay(), "chime");
     if (fresh.length - k <= 3) eventSound(e, s); // after a catch-up, only the last few moves make a sound
   }
   replayGlows();
