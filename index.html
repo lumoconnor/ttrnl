@@ -854,10 +854,13 @@ async function send(action, asId){
     const s = structuredClone(state);
     try { apply(s, asId || me, action); state = s; sendError = null; } catch (e) { sendError = e.message; }
     const prev = me, next = actingId(state); if (state.phase === "ended") local.viewer = local.viewer || prev;
-    // Without hand-offs, stay on the player who just moved for a moment so their card or claim lands in their own view.
-    if (next !== prev && !local.handoff && state.phase !== "ended" && !sendError) {
+    // Stay on the player who just moved until their card has landed in their hand or their cars are down,
+    // then move on (to the next player, or to the pass-the-device screen).
+    if (next !== prev && state.phase !== "ended" && !sendError) {
+      const r = action.type === "claim" && ROUTE[action.routeId];
+      const hold = r ? Math.min(3200, 600 + r.length * CAR_STEP * 1000 + 900) : 1100;
       local.holding = true; render();
-      setTimeout(() => { if (!local) return; local.holding = false; me = actingId(state); render(); }, 1100);
+      setTimeout(() => { if (!local) return; local.holding = false; me = actingId(state); render(); }, hold);
       return;
     }
     me = next; render(); return;
